@@ -471,11 +471,12 @@ HTML = """
         let colorGrid = document.getElementById('colorGrid');
         let lightModeCheckbox = document.getElementById('lightModeCheckbox');
 
-        // Initialize
-        window.onload = async function() {
+        // Initialize - wait for pywebview to be ready
+        window.addEventListener('pywebviewready', async function() {
+            console.log('pywebview is ready, initializing...');
             await loadColors();
             await loadWallpaper();
-        };
+        });
 
         // Load colors from backend
         async function loadColors() {
