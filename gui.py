@@ -166,7 +166,7 @@ class PrismaFrame(wx.Frame):
         self.saturation_slider = wx.Slider(adjustment_panel, value=50, minValue=0, maxValue=100,
                                           style=wx.SL_HORIZONTAL, size=(450, -1))
         self.saturation_slider.Bind(wx.EVT_SLIDER, self.on_saturation_change)
-        saturation_box.Add(self.saturation_slider, 1, wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
+        saturation_box.Add(self.saturation_slider, 1, wx.EXPAND)
 
         self.saturation_value = wx.StaticText(adjustment_panel, label="50")
         self.saturation_value.SetFont(wx.Font(9, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
@@ -185,7 +185,7 @@ class PrismaFrame(wx.Frame):
         self.contrast_slider = wx.Slider(adjustment_panel, value=50, minValue=0, maxValue=100,
                                         style=wx.SL_HORIZONTAL, size=(450, -1))
         self.contrast_slider.Bind(wx.EVT_SLIDER, self.on_contrast_change)
-        contrast_box.Add(self.contrast_slider, 1, wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
+        contrast_box.Add(self.contrast_slider, 1, wx.EXPAND)
 
         self.contrast_value = wx.StaticText(adjustment_panel, label="50")
         self.contrast_value.SetFont(wx.Font(9, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
