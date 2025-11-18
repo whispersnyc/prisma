@@ -7,6 +7,7 @@ import sys
 import pywal
 import pywal.backends.wal
 from shutil import copytree
+import winreg
 
 home = path.expanduser("~").replace("\\", "/")
 data_path = home+"/AppData/Local/prisma"
@@ -16,8 +17,12 @@ licenses_path = data_path+"/licenses"
 config = {}
 
 # get current Windows wallpaper path
-get_wallpaper = lambda: check_output(["powershell.exe", "&",
-    '\"'+resource("wallpaper.exe")+'"'], stderr=DEVNULL).decode().strip()
+def get_wallpaper():
+    """Get current Windows wallpaper path from registry"""
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Control Panel\Desktop", 0, winreg.KEY_READ) as key:
+        value, reg_type = winreg.QueryValueEx(key, "WallPaper")
+        return value
+
 # convert path to Linux format for WSL
 convert = lambda i: "/mnt/"+i[0].lower()+i[2:].replace("\\", "/")
 
@@ -120,6 +125,17 @@ def gen_colors(img, apply_config=True, light_mode=False):
 def main(test_args=None, test_config=None):
     """Process flags and read current wallpaper."""
 
+    # Launch GUI if no arguments provided (unless --headless is specified)
+    if test_args is None and len(sys.argv) == 1:
+        # No arguments, launch GUI
+        try:
+            from gui import main as gui_main
+            gui_main()
+            return
+        except Exception as e:
+            print(f"Error launching GUI: {e}")
+            print("Falling back to CLI mode...\n")
+
     # check if imagemagick installed to path
     try:
         check_output(["where", "magick"])
@@ -157,6 +173,8 @@ def main(test_args=None, test_config=None):
     parser = Parser()
     parser.description = "Reads current Windows wallpaper, generates pywal color scheme, " \
         "and applies to templates."
+    parser.add_argument("-hl", "--headless", action="store_true",
+            help="run in headless/CLI mode (default behavior when arguments are provided)")
     parser.add_argument("-co", "--colors-only", action="store_true",
             help="generate colors and format JSON only, skip config-based templates and WSL")
     parser.add_argument("-lm", "--light-mode", action="store_true",
@@ -164,6 +182,9 @@ def main(test_args=None, test_config=None):
     parser.add_argument("filepath", nargs="?", default=None,
             help="optional path to image file (if not provided, uses current wallpaper)")
     args = parser.parse_args(test_args)
+
+    # If only --headless flag was provided, process normally (will generate from current wallpaper)
+    # Otherwise continue with normal CLI behavior
 
     # determine light mode: flag takes priority over config, default to False
     light_mode = args.light_mode if args.light_mode else config.get("light_mode", False)
