@@ -810,6 +810,45 @@ HTML = """
 
             // Update button primary color
             document.querySelector('.btn-primary').style.backgroundColor = accent;
+
+            // Update all UI buttons with darkened foreground
+            updateButtonColors(fgDark, accent);
+        }
+
+        // Update button colors directly
+        function updateButtonColors(fgDark, accent) {
+            // Update template/integration buttons
+            document.querySelectorAll('.btn-template').forEach(btn => {
+                if (!btn.classList.contains('active')) {
+                    btn.style.color = fgDark;
+                    btn.style.borderColor = fgDark;
+                } else {
+                    btn.style.borderColor = accent;
+                }
+            });
+
+            // Update toggle buttons (light mode)
+            document.querySelectorAll('.btn-toggle').forEach(btn => {
+                if (!btn.classList.contains('active')) {
+                    btn.style.color = fgDark;
+                    btn.style.borderColor = fgDark;
+                } else {
+                    btn.style.borderColor = accent;
+                }
+            });
+
+            // Update icon buttons (settings, file selector)
+            document.querySelectorAll('.btn-icon').forEach(btn => {
+                btn.style.color = fgDark;
+                btn.style.borderColor = fgDark;
+            });
+
+            // Update image button
+            const imageBtn = document.getElementById('imageButton');
+            if (imageBtn) {
+                imageBtn.style.color = fgDark;
+                imageBtn.style.borderColor = fgDark;
+            }
         }
 
         // Darken a hex color by a factor (0-1, where 1 is original brightness)
@@ -930,10 +969,17 @@ HTML = """
         async function toggleTemplate(templateFile, button) {
             try {
                 const isActive = await pywebview.api.toggle_template(templateFile);
+                const accent = currentColors.color4 || '#5588dd';
+                const fg = currentColors.foreground || '#808080';
+                const fgDark = darkenColor(fg, 0.7);
+
                 if (isActive) {
                     button.classList.add('active');
+                    button.style.borderColor = accent;
                 } else {
                     button.classList.remove('active');
+                    button.style.color = fgDark;
+                    button.style.borderColor = fgDark;
                 }
             } catch (e) {
                 console.error('Error toggling template:', e);
@@ -944,10 +990,17 @@ HTML = """
         async function toggleWSL(button) {
             try {
                 const isActive = await pywebview.api.toggle_wsl();
+                const accent = currentColors.color4 || '#5588dd';
+                const fg = currentColors.foreground || '#808080';
+                const fgDark = darkenColor(fg, 0.7);
+
                 if (isActive) {
                     button.classList.add('active');
+                    button.style.borderColor = accent;
                 } else {
                     button.classList.remove('active');
+                    button.style.color = fgDark;
+                    button.style.borderColor = fgDark;
                 }
             } catch (e) {
                 console.error('Error toggling WSL:', e);
@@ -959,10 +1012,17 @@ HTML = """
             isLightMode = !isLightMode;
             pywebview.api.toggle_light_mode(isLightMode);
 
+            const accent = currentColors.color4 || '#5588dd';
+            const fg = currentColors.foreground || '#808080';
+            const fgDark = darkenColor(fg, 0.7);
+
             if (isLightMode) {
                 lightModeButton.classList.add('active');
+                lightModeButton.style.borderColor = accent;
             } else {
                 lightModeButton.classList.remove('active');
+                lightModeButton.style.color = fgDark;
+                lightModeButton.style.borderColor = fgDark;
             }
         }
 
