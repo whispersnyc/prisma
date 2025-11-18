@@ -1,331 +1,26 @@
-from kivy.lang import Builder
-from kivy.core.window import Window
-from kivy.clock import Clock
-from kivy.properties import ListProperty
-from kivymd.app import MDApp
-from kivymd.uix.screen import MDScreen
-from kivymd.uix.card import MDCard
-from kivymd.uix.button import MDRaisedButton, MDFlatButton
-from kivymd.uix.slider import MDSlider
-from kivymd.uix.label import MDLabel
-from kivymd.uix.boxlayout import MDBoxLayout
-from kivymd.uix.gridlayout import MDGridLayout
-from kivymd.uix.filemanager import MDFileManager
-from kivymd.uix.dialog import MDDialog
-from kivy.uix.image import Image
-from kivy.graphics.texture import Texture
+import webview
 from PIL import Image as PILImage, ImageEnhance
-from json import loads
+from json import loads, dumps
 from os import path, remove
-import sys
+import base64
+import io
 from main import gen_colors, get_wallpaper, home
 
 
-KV = '''
-<BorderCard@MDCard>:
-    radius: [0, 0, 0, 0]
-    canvas.before:
-        Color:
-            rgba: app.border_color
-        Line:
-            rectangle: self.x, self.y, self.width, self.height
-            width: 1
+class PrismaAPI:
+    """Backend API for the pywebview GUI"""
 
-MDScreen:
-    md_bg_color: app.bg_color
-
-    MDScrollView:
-        do_scroll_x: False
-        bar_width: 0
-
-        MDBoxLayout:
-            orientation: 'vertical'
-            spacing: dp(15)
-            adaptive_height: True
-            padding: dp(20)
-
-            # Image Preview Section
-            BorderCard:
-                orientation: 'vertical'
-                size_hint_y: None
-                height: dp(225)
-                padding: dp(15)
-                elevation: 0
-                md_bg_color: app.bg_color
-
-                FloatLayout:
-                    size_hint_y: None
-                    height: dp(195)
-
-                    Image:
-                        id: image_preview
-                        pos_hint: {'center_x': 0.5, 'center_y': 0.5}
-                        size_hint: None, None
-                        allow_stretch: True
-                        keep_ratio: True
-
-                    MDLabel:
-                        id: loading_text
-                        text: "Loading..."
-                        halign: "center"
-                        valign: "middle"
-                        theme_text_color: "Custom"
-                        text_color: 0.5, 0.5, 0.5, 1
-
-            # Image Adjustments Section
-            BorderCard:
-                orientation: 'vertical'
-                size_hint_y: None
-                height: dp(120)
-                padding: dp(15)
-                elevation: 0
-                md_bg_color: app.bg_color
-
-                MDBoxLayout:
-                    orientation: 'vertical'
-                    spacing: dp(15)
-
-                    # Saturation Slider
-                    MDBoxLayout:
-                        orientation: 'horizontal'
-                        size_hint_y: None
-                        height: dp(40)
-                        spacing: dp(10)
-
-                        MDLabel:
-                            text: "Saturation"
-                            size_hint_x: None
-                            width: dp(100)
-                            theme_text_color: "Custom"
-                            text_color: app.fg_color
-
-                        MDSlider:
-                            id: saturation_slider
-                            min: 0
-                            max: 100
-                            value: 50
-                            step: 1
-                            hint: True
-                            color: app.accent_color
-                            on_value: app.on_saturation_change(self.value)
-
-                        MDLabel:
-                            text: str(int(saturation_slider.value))
-                            size_hint_x: None
-                            width: dp(40)
-                            theme_text_color: "Custom"
-                            text_color: app.accent_color
-                            font_name: "RobotoMono-Regular"
-
-                    # Contrast Slider
-                    MDBoxLayout:
-                        orientation: 'horizontal'
-                        size_hint_y: None
-                        height: dp(40)
-                        spacing: dp(10)
-
-                        MDLabel:
-                            text: "Contrast"
-                            size_hint_x: None
-                            width: dp(100)
-                            theme_text_color: "Custom"
-                            text_color: app.fg_color
-
-                        MDSlider:
-                            id: contrast_slider
-                            min: 0
-                            max: 100
-                            value: 50
-                            step: 1
-                            hint: True
-                            color: app.accent_color
-                            on_value: app.on_contrast_change(self.value)
-
-                        MDLabel:
-                            text: str(int(contrast_slider.value))
-                            size_hint_x: None
-                            width: dp(40)
-                            theme_text_color: "Custom"
-                            text_color: app.accent_color
-                            font_name: "RobotoMono-Regular"
-
-            # Color Palette Section
-            BorderCard:
-                orientation: 'vertical'
-                size_hint_y: None
-                height: dp(170)
-                padding: dp(15)
-                elevation: 0
-                md_bg_color: app.bg_color
-
-                MDGridLayout:
-                    id: color_grid
-                    cols: 9
-                    rows: 2
-                    spacing: dp(6)
-
-            # Controls Section
-            BorderCard:
-                orientation: 'vertical'
-                size_hint_y: None
-                height: dp(130)
-                padding: dp(15)
-                elevation: 0
-                md_bg_color: app.bg_color
-
-                MDBoxLayout:
-                    orientation: 'vertical'
-                    spacing: dp(15)
-
-                    MDBoxLayout:
-                        orientation: 'horizontal'
-                        size_hint_y: None
-                        height: dp(40)
-
-                        Widget:
-
-                        MDCheckbox:
-                            id: light_mode_checkbox
-                            size_hint: None, None
-                            size: dp(40), dp(40)
-                            on_active: app.on_light_mode_toggle(self.active)
-
-                        MDLabel:
-                            text: "Light Mode Color Scheme"
-                            theme_text_color: "Custom"
-                            text_color: app.fg_color
-                            size_hint_y: None
-                            height: dp(40)
-
-                        Widget:
-
-                    MDBoxLayout:
-                        orientation: 'horizontal'
-                        spacing: dp(15)
-                        size_hint_y: None
-                        height: dp(50)
-
-                        Widget:
-
-                        MDRaisedButton:
-                            text: "SELECT IMAGE"
-                            md_bg_color: 0.2, 0.2, 0.2, 1
-                            on_release: app.select_image()
-                            size_hint_x: None
-                            width: dp(180)
-                            radius: [0, 0, 0, 0]
-
-                        MDRaisedButton:
-                            text: "GENERATE COLORS"
-                            md_bg_color: app.accent_color
-                            on_release: app.generate_colors()
-                            size_hint_x: None
-                            width: dp(180)
-                            radius: [0, 0, 0, 0]
-
-                        Widget:
-'''
-
-
-class ColorBox(MDCard):
-    """Custom widget for displaying a single color"""
-    def __init__(self, color_name, color_value, **kwargs):
-        super().__init__(**kwargs)
-        self.color_name = color_name
-        self.color_value = color_value
-        self.size_hint = (1, None)
-        self.height = 60
-        self.md_bg_color = self.hex_to_rgb(color_value)
-        self.elevation = 0
-        self.radius = [0, 0, 0, 0]
-
-        # Add label
-        label = MDLabel(
-            text=color_name,
-            halign="center",
-            theme_text_color="Custom",
-            text_color=self.get_contrast_color(color_value),
-            font_size="9sp"
-        )
-        self.add_widget(label)
-
-    def hex_to_rgb(self, hex_color):
-        """Convert hex color to RGBA tuple for Kivy"""
-        hex_color = hex_color.lstrip('#')
-        r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
-        return (r/255, g/255, b/255, 1)
-
-    def get_contrast_color(self, hex_color):
-        """Get contrasting text color (black or white)"""
-        try:
-            hex_color = hex_color.lstrip('#')
-            r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
-            luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-            if luminance > 0.5:
-                return (0, 0, 0, 1)
-            return (1, 1, 1, 1)
-        except:
-            return (1, 1, 1, 1)
-
-    def update_color(self, color_value):
-        """Update the box color"""
-        self.color_value = color_value
-        self.md_bg_color = self.hex_to_rgb(color_value)
-        # Update label color
-        if self.children:
-            self.children[0].text_color = self.get_contrast_color(color_value)
-
-
-class PrismaApp(MDApp):
-    # Color properties
-    bg_color = ListProperty([0, 0, 0, 1])
-    border_color = ListProperty([0.5, 0.5, 0.5, 1])
-    fg_color = ListProperty([0.88, 0.88, 0.88, 1])
-    accent_color = ListProperty([0.33, 0.53, 0.87, 1])
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.title = "Prisma - Pywal Color Generator"
-        self.theme_cls.theme_style = "Dark"
-        self.theme_cls.primary_palette = "Blue"
-
-        # State variables
+    def __init__(self):
         self.current_image_path = None
         self.light_mode = False
         self.colors = {}
-        self.color_boxes = {}
         self.saturation = 50
         self.contrast = 50
         self.original_image = None
         self.adjusted_image_path = None
 
-        # File manager
-        self.file_manager = None
-        self.dialog = None
-
-        # Load colors
+        # Load initial colors
         self.load_pywal_colors()
-        self.update_theme_colors()
-
-    def build(self):
-        Window.size = (900, 800)
-        self.screen = Builder.load_string(KV)
-        Clock.schedule_once(self.load_current_wallpaper, 0.5)
-        Clock.schedule_once(self.create_color_palette, 0.5)
-        return self.screen
-
-    def hex_to_kivy_color(self, hex_color):
-        """Convert hex color to Kivy RGBA tuple"""
-        hex_color = hex_color.lstrip('#')
-        r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
-        return [r/255, g/255, b/255, 1]
-
-    def update_theme_colors(self):
-        """Update app colors from pywal palette"""
-        self.bg_color = self.hex_to_kivy_color(self.colors.get("background", "#000000"))
-        self.border_color = self.hex_to_kivy_color(self.colors.get("foreground", "#808080"))
-        self.fg_color = self.hex_to_kivy_color(self.colors.get("foreground", "#808080"))
-        self.accent_color = self.hex_to_kivy_color(self.colors.get("color4", "#5588dd"))
 
     def load_pywal_colors(self):
         """Load colors from pywal cache if it exists"""
@@ -348,195 +43,114 @@ class PrismaApp(MDApp):
                 **{f"color{i}": "#808080" for i in range(16)}
             }
 
-    def create_color_palette(self, dt):
-        """Create the color palette grid"""
-        grid = self.screen.ids.color_grid
+        return self.colors
 
-        color_pairs = [
-            ("background", "foreground"),
-            ("color0", "color1"),
-            ("color2", "color3"),
-            ("color4", "color5"),
-            ("color6", "color7"),
-            ("color8", "color9"),
-            ("color10", "color11"),
-            ("color12", "color13"),
-            ("color14", "color15")
-        ]
+    def get_colors(self):
+        """Get current color palette"""
+        return self.colors
 
-        # Add top row
-        for color1, color2 in color_pairs:
-            color1_val = self.colors.get(color1, "#808080")
-            box = ColorBox(color1, color1_val)
-            grid.add_widget(box)
-            self.color_boxes[color1] = box
-
-        # Add bottom row
-        for color1, color2 in color_pairs:
-            color2_val = self.colors.get(color2, "#808080")
-            box = ColorBox(color2, color2_val)
-            grid.add_widget(box)
-            self.color_boxes[color2] = box
-
-    def load_current_wallpaper(self, dt):
-        """Load and display current Windows wallpaper"""
+    def load_current_wallpaper(self):
+        """Load and return current Windows wallpaper as base64"""
         try:
             wallpaper_path = get_wallpaper()
             if wallpaper_path and path.isfile(wallpaper_path):
                 self.current_image_path = wallpaper_path
-                self.display_image(wallpaper_path)
-            else:
-                self.screen.ids.loading_text.text = "No wallpaper found"
+                return self.get_image_base64(wallpaper_path)
+            return None
         except Exception as e:
-            self.screen.ids.loading_text.text = "Could not load wallpaper"
             print(f"Error loading wallpaper: {e}")
+            return None
 
-    def display_image(self, image_path):
-        """Display image in preview area"""
+    def get_image_base64(self, image_path, max_width=850, max_height=300):
+        """Convert image to base64 for display"""
         try:
-            # Open and resize image
             img = PILImage.open(image_path)
 
-            # Calculate aspect ratio and resize to fill preview area
-            max_width, max_height = 850, 195
+            # Calculate aspect ratio and resize
             img.thumbnail((max_width, max_height), PILImage.Resampling.LANCZOS)
 
-            # Store original image for later adjustments
-            self.original_image = img.copy()
+            # Store original for adjustments
+            self.original_image = PILImage.open(image_path)
 
-            # Display the image with current adjustments
-            self.update_preview()
+            # Apply current adjustments
+            img = self.apply_adjustments(img)
 
-            # Hide loading text
-            self.screen.ids.loading_text.text = ""
+            # Convert to base64
+            buffer = io.BytesIO()
+            img.save(buffer, format='PNG')
+            img_str = base64.b64encode(buffer.getvalue()).decode()
 
+            return f"data:image/png;base64,{img_str}"
         except Exception as e:
-            self.screen.ids.loading_text.text = "Error loading image"
-            print(f"Error displaying image: {e}")
+            print(f"Error converting image: {e}")
+            return None
 
-    def update_preview(self):
-        """Update preview with current saturation and contrast adjustments"""
-        if self.original_image is None:
-            return
+    def apply_adjustments(self, img):
+        """Apply saturation and contrast adjustments to image"""
+        saturation_factor = self.saturation / 50.0
+        contrast_factor = self.contrast / 50.0
 
-        try:
-            # Start with a copy of the original image
-            img = self.original_image.copy()
+        # Apply saturation
+        if saturation_factor != 1.0:
+            enhancer = ImageEnhance.Color(img)
+            img = enhancer.enhance(saturation_factor)
 
-            # Convert saturation and contrast from 0-100 scale to PIL scale
-            saturation_factor = self.saturation / 50.0
-            contrast_factor = self.contrast / 50.0
+        # Apply contrast
+        if contrast_factor != 1.0:
+            enhancer = ImageEnhance.Contrast(img)
+            img = enhancer.enhance(contrast_factor)
 
-            # Apply saturation adjustment
-            if saturation_factor != 1.0:
-                enhancer = ImageEnhance.Color(img)
-                img = enhancer.enhance(saturation_factor)
-
-            # Apply contrast adjustment
-            if contrast_factor != 1.0:
-                enhancer = ImageEnhance.Contrast(img)
-                img = enhancer.enhance(contrast_factor)
-
-            # Convert PIL image to Kivy texture
-            img_rgb = img.convert('RGB')
-            data = img_rgb.tobytes()
-            texture = Texture.create(size=img_rgb.size, colorfmt='rgb')
-            texture.blit_buffer(data, colorfmt='rgb', bufferfmt='ubyte')
-            texture.flip_vertical()
-
-            # Update image widget and size to fill container
-            image_widget = self.screen.ids.image_preview
-            image_widget.texture = texture
-
-            # Calculate size to fill the container (850x195 with padding)
-            container_width = 850
-            container_height = 195
-            img_width, img_height = img.size
-
-            # Calculate scale to fill container
-            scale_w = container_width / img_width
-            scale_h = container_height / img_height
-            scale = max(scale_w, scale_h)  # Use max to fill
-
-            # Set image size
-            image_widget.size = (img_width * scale, img_height * scale)
-
-        except Exception as e:
-            print(f"Error updating preview: {e}")
+        return img
 
     def select_image(self):
-        """Open file manager to select an image"""
-        if not self.file_manager:
-            self.file_manager = MDFileManager(
-                exit_manager=self.exit_file_manager,
-                select_path=self.on_file_selected,
-            )
+        """Open file dialog to select an image"""
+        file_types = ('Image Files (*.png;*.jpg;*.jpeg;*.bmp;*.gif)', 'All files (*.*)')
+        result = webview.windows[0].create_file_dialog(webview.OPEN_DIALOG, file_types=file_types)
 
-        self.file_manager.show(path.expanduser("~"))
-
-    def on_file_selected(self, file_path):
-        """Handle file selection"""
-        self.exit_file_manager()
-
-        # Check if it's an image file
-        valid_extensions = ('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.tiff')
-        if file_path.lower().endswith(valid_extensions):
+        if result and len(result) > 0:
+            file_path = result[0]
             self.current_image_path = file_path
-            self.display_image(file_path)
+            return self.get_image_base64(file_path)
+        return None
 
-    def exit_file_manager(self, *args):
-        """Close file manager"""
-        if self.file_manager:
-            self.file_manager.close()
-
-    def on_saturation_change(self, value):
-        """Handle saturation slider change"""
+    def update_saturation(self, value):
+        """Update saturation value"""
         self.saturation = int(value)
-        self.update_preview()
+        if self.current_image_path:
+            return self.get_image_base64(self.current_image_path)
+        return None
 
-    def on_contrast_change(self, value):
-        """Handle contrast slider change"""
+    def update_contrast(self, value):
+        """Update contrast value"""
         self.contrast = int(value)
-        self.update_preview()
+        if self.current_image_path:
+            return self.get_image_base64(self.current_image_path)
+        return None
 
-    def on_light_mode_toggle(self, active):
-        """Toggle between light and dark mode"""
+    def toggle_light_mode(self, active):
+        """Toggle light mode"""
         self.light_mode = active
 
     def adjust_and_save_image(self, image_path):
-        """Adjust image saturation and contrast, save with special naming convention"""
+        """Adjust and save image with saturation and contrast"""
         try:
-            # Open the image
             img = PILImage.open(image_path)
 
-            # Convert saturation and contrast from 0-100 scale to PIL scale
-            saturation_factor = self.saturation / 50.0
-            contrast_factor = self.contrast / 50.0
+            # Apply adjustments
+            img = self.apply_adjustments(img)
 
-            # Apply saturation adjustment
-            if saturation_factor != 1.0:
-                enhancer = ImageEnhance.Color(img)
-                img = enhancer.enhance(saturation_factor)
-
-            # Apply contrast adjustment
-            if contrast_factor != 1.0:
-                enhancer = ImageEnhance.Contrast(img)
-                img = enhancer.enhance(contrast_factor)
-
-            # Create output filename with saturation and contrast values
+            # Create output filename
             base_dir = path.dirname(image_path)
             base_name = path.basename(image_path)
             name_without_ext, ext = path.splitext(base_name)
 
-            # Create new filename: original_name-s50c50.ext
             adjusted_filename = f"{name_without_ext}-s{self.saturation}c{self.contrast}{ext}"
             adjusted_path = path.join(base_dir, adjusted_filename)
 
-            # Save the adjusted image
+            # Save adjusted image
             img.save(adjusted_path)
 
             return adjusted_path
-
         except Exception as e:
             print(f"Error adjusting image: {e}")
             return image_path
@@ -544,75 +158,468 @@ class PrismaApp(MDApp):
     def generate_colors(self):
         """Generate colors from current image"""
         if not self.current_image_path:
-            self.show_dialog("Error", "No image selected. Please select an image first.")
-            return
+            return {"success": False, "error": "No image selected"}
 
         if not path.isfile(self.current_image_path):
-            self.show_dialog("Error", "Selected image file does not exist.")
-            return
+            return {"success": False, "error": "Image file does not exist"}
 
-        # Check if adjustments were made
         is_adjusted = (self.saturation != 50 or self.contrast != 50)
 
         try:
-            # Adjust and save image with saturation and contrast
+            # Adjust and save image
             adjusted_image_path = self.adjust_and_save_image(self.current_image_path)
-
-            # Store the path for potential cleanup
             self.adjusted_image_path = adjusted_image_path if is_adjusted else None
 
-            # Generate colors using main.py function with adjusted image
+            # Generate colors
             gen_colors(adjusted_image_path, apply_config=False, light_mode=self.light_mode)
 
             # Reload colors
             self.load_pywal_colors()
 
-            # Update theme colors
-            self.update_theme_colors()
-
-            # Update UI
-            self.update_color_palette()
-
-            # Clean up temporary adjusted image file if it was created
+            # Clean up temporary file
             if is_adjusted and self.adjusted_image_path and path.isfile(self.adjusted_image_path):
                 try:
                     remove(self.adjusted_image_path)
                     print(f"Cleaned up temporary file: {self.adjusted_image_path}")
-                except Exception as cleanup_error:
-                    print(f"Warning: Could not delete temporary file: {cleanup_error}")
+                except Exception as e:
+                    print(f"Warning: Could not delete temporary file: {e}")
 
-            self.show_dialog("Success", "Colors generated successfully!")
-
+            return {"success": True, "colors": self.colors}
         except Exception as e:
-            self.show_dialog("Error", f"Failed to generate colors: {str(e)}")
             print(f"Error generating colors: {e}")
+            return {"success": False, "error": str(e)}
 
-    def update_color_palette(self):
-        """Update all color boxes with new colors"""
-        for color_name, box in self.color_boxes.items():
-            color_val = self.colors.get(color_name, "#808080")
-            box.update_color(color_val)
 
-    def show_dialog(self, title, text):
-        """Show a simple dialog"""
-        if self.dialog:
-            self.dialog.dismiss()
+HTML = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-        self.dialog = MDDialog(
-            title=title,
-            text=text,
-            buttons=[
-                MDFlatButton(
-                    text="OK",
-                    on_release=lambda x: self.dialog.dismiss()
-                ),
-            ],
-        )
-        self.dialog.open()
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #000000;
+            color: #808080;
+            overflow-y: auto;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .panel {
+            background: #000000;
+            border: 1px solid #808080;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .image-preview {
+            width: 100%;
+            height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: #000000;
+        }
+
+        .image-preview img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .image-preview .placeholder {
+            color: #808080;
+            font-size: 14px;
+        }
+
+        .slider-group {
+            margin-bottom: 20px;
+        }
+
+        .slider-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #808080;
+        }
+
+        .slider-value {
+            font-weight: 600;
+            font-family: 'Courier New', monospace;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            background: #333333;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #5588dd;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #5588dd;
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+        }
+
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            gap: 6px;
+        }
+
+        .color-box {
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: 500;
+            cursor: default;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            font-size: 14px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 12px 32px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            letter-spacing: 0.5px;
+        }
+
+        button:hover {
+            opacity: 0.8;
+        }
+
+        button:active {
+            opacity: 0.6;
+        }
+
+        .btn-secondary {
+            background: #333333;
+            color: #ffffff;
+        }
+
+        .btn-primary {
+            background: #5588dd;
+            color: #ffffff;
+        }
+
+        .message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 4px;
+            font-size: 14px;
+            z-index: 1000;
+            display: none;
+        }
+
+        .message.success {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .message.error {
+            background: #f44336;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Image Preview -->
+        <div class="panel">
+            <div class="image-preview" id="imagePreview">
+                <div class="placeholder">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Adjustments -->
+        <div class="panel">
+            <div class="slider-group">
+                <div class="slider-label">
+                    <span>Saturation</span>
+                    <span class="slider-value" id="saturationValue">50</span>
+                </div>
+                <input type="range" id="saturationSlider" min="0" max="100" value="50" step="1">
+            </div>
+
+            <div class="slider-group">
+                <div class="slider-label">
+                    <span>Contrast</span>
+                    <span class="slider-value" id="contrastValue">50</span>
+                </div>
+                <input type="range" id="contrastSlider" min="0" max="100" value="50" step="1">
+            </div>
+        </div>
+
+        <!-- Color Palette -->
+        <div class="panel">
+            <div class="color-grid" id="colorGrid"></div>
+        </div>
+
+        <!-- Controls -->
+        <div class="panel">
+            <div class="controls">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="lightModeCheckbox">
+                    <label for="lightModeCheckbox">Light Mode Color Scheme</label>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-secondary" onclick="selectImage()">SELECT IMAGE</button>
+                    <button class="btn-primary" onclick="generateColors()">GENERATE COLORS</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="message" id="message"></div>
+
+    <script>
+        let saturationSlider = document.getElementById('saturationSlider');
+        let contrastSlider = document.getElementById('contrastSlider');
+        let saturationValue = document.getElementById('saturationValue');
+        let contrastValue = document.getElementById('contrastValue');
+        let imagePreview = document.getElementById('imagePreview');
+        let colorGrid = document.getElementById('colorGrid');
+        let lightModeCheckbox = document.getElementById('lightModeCheckbox');
+
+        // Initialize
+        window.onload = async function() {
+            await loadColors();
+            await loadWallpaper();
+        };
+
+        // Load colors from backend
+        async function loadColors() {
+            try {
+                const colors = await pywebview.api.get_colors();
+                updateColorGrid(colors);
+                updateTheme(colors);
+            } catch (e) {
+                console.error('Error loading colors:', e);
+            }
+        }
+
+        // Load current wallpaper
+        async function loadWallpaper() {
+            try {
+                const imageData = await pywebview.api.load_current_wallpaper();
+                if (imageData) {
+                    imagePreview.innerHTML = '<img src="' + imageData + '">';
+                } else {
+                    imagePreview.innerHTML = '<div class="placeholder">No wallpaper found</div>';
+                }
+            } catch (e) {
+                console.error('Error loading wallpaper:', e);
+                imagePreview.innerHTML = '<div class="placeholder">Error loading wallpaper</div>';
+            }
+        }
+
+        // Update color grid
+        function updateColorGrid(colors) {
+            const colorNames = [
+                'background', 'foreground',
+                'color0', 'color1', 'color2', 'color3',
+                'color4', 'color5', 'color6', 'color7',
+                'color8', 'color9', 'color10', 'color11',
+                'color12', 'color13', 'color14', 'color15'
+            ];
+
+            colorGrid.innerHTML = '';
+            colorNames.forEach(name => {
+                const color = colors[name] || '#808080';
+                const box = document.createElement('div');
+                box.className = 'color-box';
+                box.style.backgroundColor = color;
+                box.textContent = name;
+
+                // Calculate contrast color for text
+                const rgb = parseInt(color.slice(1), 16);
+                const r = (rgb >> 16) & 0xff;
+                const g = (rgb >> 8) & 0xff;
+                const b = rgb & 0xff;
+                const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+                box.style.color = luminance > 0.5 ? '#000000' : '#ffffff';
+
+                colorGrid.appendChild(box);
+            });
+        }
+
+        // Update theme colors
+        function updateTheme(colors) {
+            const bg = colors.background || '#000000';
+            const fg = colors.foreground || '#808080';
+            const accent = colors.color4 || '#5588dd';
+
+            document.body.style.backgroundColor = bg;
+            document.body.style.color = fg;
+
+            document.querySelectorAll('.panel').forEach(panel => {
+                panel.style.backgroundColor = bg;
+                panel.style.borderColor = fg;
+            });
+
+            document.querySelectorAll('.slider-label, .checkbox-group label').forEach(el => {
+                el.style.color = fg;
+            });
+
+            document.querySelectorAll('.image-preview').forEach(el => {
+                el.style.backgroundColor = bg;
+            });
+
+            document.querySelectorAll('input[type="range"]::-webkit-slider-thumb').forEach(el => {
+                el.style.background = accent;
+            });
+
+            // Update button primary color
+            document.querySelector('.btn-primary').style.backgroundColor = accent;
+        }
+
+        // Saturation slider
+        saturationSlider.addEventListener('input', async function() {
+            saturationValue.textContent = this.value;
+            const imageData = await pywebview.api.update_saturation(this.value);
+            if (imageData) {
+                imagePreview.innerHTML = '<img src="' + imageData + '">';
+            }
+        });
+
+        // Contrast slider
+        contrastSlider.addEventListener('input', async function() {
+            contrastValue.textContent = this.value;
+            const imageData = await pywebview.api.update_contrast(this.value);
+            if (imageData) {
+                imagePreview.innerHTML = '<img src="' + imageData + '">';
+            }
+        });
+
+        // Light mode checkbox
+        lightModeCheckbox.addEventListener('change', function() {
+            pywebview.api.toggle_light_mode(this.checked);
+        });
+
+        // Select image
+        async function selectImage() {
+            try {
+                const imageData = await pywebview.api.select_image();
+                if (imageData) {
+                    imagePreview.innerHTML = '<img src="' + imageData + '">';
+                }
+            } catch (e) {
+                console.error('Error selecting image:', e);
+            }
+        }
+
+        // Generate colors
+        async function generateColors() {
+            try {
+                const result = await pywebview.api.generate_colors();
+                if (result.success) {
+                    updateColorGrid(result.colors);
+                    updateTheme(result.colors);
+                    showMessage('Colors generated successfully!', 'success');
+                } else {
+                    showMessage(result.error || 'Failed to generate colors', 'error');
+                }
+            } catch (e) {
+                console.error('Error generating colors:', e);
+                showMessage('Error generating colors', 'error');
+            }
+        }
+
+        // Show message
+        function showMessage(text, type) {
+            const message = document.getElementById('message');
+            message.textContent = text;
+            message.className = 'message ' + type;
+            message.style.display = 'block';
+
+            setTimeout(() => {
+                message.style.display = 'none';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
+"""
 
 
 def main():
-    PrismaApp().run()
+    api = PrismaAPI()
+    window = webview.create_window(
+        'Prisma - Pywal Color Generator',
+        html=HTML,
+        js_api=api,
+        width=900,
+        height=900,
+        resizable=True
+    )
+    webview.start()
 
 
 if __name__ == "__main__":
