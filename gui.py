@@ -60,6 +60,7 @@ class PrismaFrame(wx.Frame):
         self.color_panels = {}
         self.saturation = 50  # 0-100, 50 is normal
         self.contrast = 50    # 0-100, 50 is normal
+        self.original_image = None  # Store original PIL image for preview adjustments
 
         # Load existing pywal colors if available
         self.load_pywal_colors()
@@ -138,14 +139,9 @@ class PrismaFrame(wx.Frame):
         saturation_box.Add(saturation_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
 
         self.saturation_slider = wx.Slider(self.panel, value=50, minValue=0, maxValue=100,
-                                          style=wx.SL_HORIZONTAL | wx.SL_LABELS, size=(300, -1))
+                                          style=wx.SL_HORIZONTAL | wx.SL_LABELS, size=(400, -1))
         self.saturation_slider.Bind(wx.EVT_SLIDER, self.on_saturation_change)
-        saturation_box.Add(self.saturation_slider, 1, wx.EXPAND | wx.RIGHT, 10)
-
-        self.saturation_value = wx.StaticText(self.panel, label="50")
-        self.saturation_value.SetForegroundColour(fg_color)
-        self.saturation_value.SetBackgroundColour(bg_color)
-        saturation_box.Add(self.saturation_value, 0, wx.ALIGN_CENTER_VERTICAL)
+        saturation_box.Add(self.saturation_slider, 1, wx.EXPAND)
 
         adjustment_sizer.Add(saturation_box, 0, wx.EXPAND | wx.ALL, 5)
 
@@ -157,14 +153,9 @@ class PrismaFrame(wx.Frame):
         contrast_box.Add(contrast_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
 
         self.contrast_slider = wx.Slider(self.panel, value=50, minValue=0, maxValue=100,
-                                        style=wx.SL_HORIZONTAL | wx.SL_LABELS, size=(300, -1))
+                                        style=wx.SL_HORIZONTAL | wx.SL_LABELS, size=(400, -1))
         self.contrast_slider.Bind(wx.EVT_SLIDER, self.on_contrast_change)
-        contrast_box.Add(self.contrast_slider, 1, wx.EXPAND | wx.RIGHT, 10)
-
-        self.contrast_value = wx.StaticText(self.panel, label="50")
-        self.contrast_value.SetForegroundColour(fg_color)
-        self.contrast_value.SetBackgroundColour(bg_color)
-        contrast_box.Add(self.contrast_value, 0, wx.ALIGN_CENTER_VERTICAL)
+        contrast_box.Add(self.contrast_slider, 1, wx.EXPAND)
 
         adjustment_sizer.Add(contrast_box, 0, wx.EXPAND | wx.ALL, 5)
 
@@ -269,14 +260,11 @@ class PrismaFrame(wx.Frame):
             max_width, max_height = 400, 200
             img.thumbnail((max_width, max_height), Image.Resampling.LANCZOS)
 
-            # Convert PIL image to wx.Image
-            width, height = img.size
-            wx_image = wx.Image(width, height)
-            wx_image.SetData(img.convert("RGB").tobytes())
+            # Store original image for later adjustments
+            self.original_image = img.copy()
 
-            # Convert to bitmap and display
-            bitmap = wx.Bitmap(wx_image)
-            self.image_bitmap.SetBitmap(bitmap)
+            # Display the image with current adjustments
+            self.update_preview()
 
             # Hide loading text
             self.loading_text.SetLabel("")
@@ -287,6 +275,45 @@ class PrismaFrame(wx.Frame):
         except Exception as e:
             self.loading_text.SetLabel("Error loading image")
             print(f"Error displaying image: {e}")
+
+    def update_preview(self):
+        """Update preview with current saturation and contrast adjustments"""
+        if self.original_image is None:
+            return
+
+        try:
+            # Start with a copy of the original image
+            img = self.original_image.copy()
+
+            # Convert saturation and contrast from 0-100 scale to PIL scale
+            # 50 = 1.0 (normal), 0 = 0.0, 100 = 2.0
+            saturation_factor = self.saturation / 50.0
+            contrast_factor = self.contrast / 50.0
+
+            # Apply saturation adjustment
+            if saturation_factor != 1.0:
+                enhancer = ImageEnhance.Color(img)
+                img = enhancer.enhance(saturation_factor)
+
+            # Apply contrast adjustment
+            if contrast_factor != 1.0:
+                enhancer = ImageEnhance.Contrast(img)
+                img = enhancer.enhance(contrast_factor)
+
+            # Convert PIL image to wx.Image
+            width, height = img.size
+            wx_image = wx.Image(width, height)
+            wx_image.SetData(img.convert("RGB").tobytes())
+
+            # Convert to bitmap and display
+            bitmap = wx.Bitmap(wx_image)
+            self.image_bitmap.SetBitmap(bitmap)
+
+            # Refresh the display
+            self.panel.Layout()
+
+        except Exception as e:
+            print(f"Error updating preview: {e}")
 
     def on_select_file(self, event):
         """Open file dialog to select an image"""
@@ -308,12 +335,12 @@ class PrismaFrame(wx.Frame):
     def on_saturation_change(self, event):
         """Handle saturation slider change"""
         self.saturation = self.saturation_slider.GetValue()
-        self.saturation_value.SetLabel(str(self.saturation))
+        self.update_preview()
 
     def on_contrast_change(self, event):
         """Handle contrast slider change"""
         self.contrast = self.contrast_slider.GetValue()
-        self.contrast_value.SetLabel(str(self.contrast))
+        self.update_preview()
 
     def adjust_and_save_image(self, image_path):
         """Adjust image saturation and contrast, save with special naming convention
