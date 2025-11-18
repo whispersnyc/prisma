@@ -701,12 +701,18 @@ HTML = """
         // Load colors from backend
         async function loadColors() {
             try {
-                console.log('Loading colors from backend...');
+                console.log('=== loadColors called ===');
                 const colors = await pywebview.api.get_colors();
-                console.log('Colors loaded:', colors);
+                console.log('Colors loaded from backend:', colors);
+                console.log('Foreground color:', colors.foreground);
+                console.log('Background color:', colors.background);
+                console.log('Color4 (accent):', colors.color4);
                 currentColors = colors;
+                console.log('Calling updateColorGrid...');
                 updateColorGrid(colors);
+                console.log('Calling updateTheme...');
                 updateTheme(colors);
+                console.log('=== loadColors complete ===');
             } catch (e) {
                 console.error('Error loading colors:', e);
             }
@@ -777,12 +783,18 @@ HTML = """
 
         // Update theme colors
         function updateTheme(colors) {
+            console.log('=== updateTheme called ===');
+            console.log('Colors received:', colors);
+
             const bg = colors.background || '#000000';
             const fg = colors.foreground || '#808080';
             const accent = colors.color4 || '#5588dd';
 
+            console.log('Extracted colors:', { bg, fg, accent });
+
             // Calculate darkened foreground (70% brightness)
             const fgDark = darkenColor(fg, 0.7);
+            console.log('Darkened foreground color:', fgDark);
 
             // Set CSS variables
             document.documentElement.style.setProperty('--fg-dark', fgDark);
@@ -812,60 +824,89 @@ HTML = """
             document.querySelector('.btn-primary').style.backgroundColor = accent;
 
             // Update all UI buttons with darkened foreground
+            console.log('Calling updateButtonColors...');
             updateButtonColors(fgDark, accent);
         }
 
         // Update button colors directly
         function updateButtonColors(fgDark, accent) {
+            console.log('=== updateButtonColors called ===');
+            console.log('fgDark:', fgDark, 'accent:', accent);
+
             // Update template/integration buttons
-            document.querySelectorAll('.btn-template').forEach(btn => {
-                if (!btn.classList.contains('active')) {
+            const templateBtns = document.querySelectorAll('.btn-template');
+            console.log('Found', templateBtns.length, 'template buttons');
+            templateBtns.forEach((btn, index) => {
+                const isActive = btn.classList.contains('active');
+                console.log(`Template button ${index}: active=${isActive}`);
+                if (!isActive) {
                     btn.style.color = fgDark;
                     btn.style.borderColor = fgDark;
+                    console.log(`  Set color to ${fgDark}`);
                 } else {
                     btn.style.borderColor = accent;
+                    console.log(`  Set border to ${accent} (active)`);
                 }
             });
 
             // Update toggle buttons (light mode)
-            document.querySelectorAll('.btn-toggle').forEach(btn => {
-                if (!btn.classList.contains('active')) {
+            const toggleBtns = document.querySelectorAll('.btn-toggle');
+            console.log('Found', toggleBtns.length, 'toggle buttons');
+            toggleBtns.forEach((btn, index) => {
+                const isActive = btn.classList.contains('active');
+                console.log(`Toggle button ${index}: active=${isActive}`);
+                if (!isActive) {
                     btn.style.color = fgDark;
                     btn.style.borderColor = fgDark;
+                    console.log(`  Set color to ${fgDark}`);
                 } else {
                     btn.style.borderColor = accent;
+                    console.log(`  Set border to ${accent} (active)`);
                 }
             });
 
             // Update icon buttons (settings, file selector)
-            document.querySelectorAll('.btn-icon').forEach(btn => {
+            const iconBtns = document.querySelectorAll('.btn-icon');
+            console.log('Found', iconBtns.length, 'icon buttons');
+            iconBtns.forEach((btn, index) => {
                 btn.style.color = fgDark;
                 btn.style.borderColor = fgDark;
+                console.log(`Icon button ${index}: Set color to ${fgDark}`);
             });
 
             // Update image button
             const imageBtn = document.getElementById('imageButton');
+            console.log('Image button found:', !!imageBtn);
             if (imageBtn) {
                 imageBtn.style.color = fgDark;
                 imageBtn.style.borderColor = fgDark;
+                console.log(`Image button: Set color to ${fgDark}`);
             }
         }
 
         // Darken a hex color by a factor (0-1, where 1 is original brightness)
         function darkenColor(hex, factor) {
+            console.log(`darkenColor called with hex=${hex}, factor=${factor}`);
+
             // Parse hex color
             const rgb = parseInt(hex.slice(1), 16);
             let r = (rgb >> 16) & 0xff;
             let g = (rgb >> 8) & 0xff;
             let b = rgb & 0xff;
 
+            console.log(`Original RGB: r=${r}, g=${g}, b=${b}`);
+
             // Apply darkening factor
             r = Math.floor(r * factor);
             g = Math.floor(g * factor);
             b = Math.floor(b * factor);
 
+            console.log(`Darkened RGB: r=${r}, g=${g}, b=${b}`);
+
             // Convert back to hex
-            return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+            const result = '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+            console.log(`Result: ${result}`);
+            return result;
         }
 
         // Update slider thumb color dynamically
@@ -1053,13 +1094,19 @@ HTML = """
         // Generate colors
         async function generateColors() {
             try {
+                console.log('=== generateColors called ===');
                 const result = await pywebview.api.generate_colors();
+                console.log('Generate colors result:', result);
                 if (result.success) {
+                    console.log('New colors:', result.colors);
                     currentColors = result.colors;
+                    console.log('Calling updateColorGrid...');
                     updateColorGrid(result.colors);
+                    console.log('Calling updateTheme...');
                     updateTheme(result.colors);
                     showMessage('Colors generated successfully!', 'success');
                 } else {
+                    console.error('Generate colors failed:', result.error);
                     showMessage(result.error || 'Failed to generate colors', 'error');
                 }
             } catch (e) {
