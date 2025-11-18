@@ -406,7 +406,8 @@ HTML = """
             width: 40px;
             height: 40px;
             background: rgba(51, 51, 51, 0.8);
-            border: 1px solid #808080;
+            border: 1px solid var(--fg-dark, #808080);
+            color: var(--fg-dark, #808080);
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -479,7 +480,7 @@ HTML = """
             overflow-x: auto;
             overflow-y: hidden;
             white-space: nowrap;
-            padding: 10px 0;
+            padding: 10px 20px;
         }
 
         .template-buttons {
@@ -492,8 +493,8 @@ HTML = """
             font-size: 12px;
             font-weight: 600;
             background: #1a1a1a;
-            color: #808080;
-            border: 1px solid #808080;
+            color: var(--fg-dark, #808080);
+            border: 1px solid var(--fg-dark, #808080);
             cursor: pointer;
             transition: all 0.2s;
             letter-spacing: 0.5px;
@@ -503,7 +504,7 @@ HTML = """
         .btn-template.active {
             background: #333333;
             color: #ffffff;
-            border-color: #5588dd;
+            border-color: var(--accent-color, #5588dd);
         }
 
         .btn-template:hover {
@@ -531,8 +532,8 @@ HTML = """
             padding: 12px 16px;
             font-size: 16px;
             background: #1a1a1a;
-            color: #808080;
-            border: 1px solid #808080;
+            color: var(--fg-dark, #808080);
+            border: 1px solid var(--fg-dark, #808080);
             cursor: pointer;
             transition: all 0.2s;
             display: flex;
@@ -567,14 +568,15 @@ HTML = """
 
         .btn-toggle {
             background: #1a1a1a;
-            color: #808080;
+            color: var(--fg-dark, #808080);
+            border-color: var(--fg-dark, #808080);
             position: relative;
         }
 
         .btn-toggle.active {
             background: #333333;
             color: #ffffff;
-            border-color: #5588dd;
+            border-color: var(--accent-color, #5588dd);
         }
 
         .btn-toggle::before {
@@ -779,6 +781,13 @@ HTML = """
             const fg = colors.foreground || '#808080';
             const accent = colors.color4 || '#5588dd';
 
+            // Calculate darkened foreground (70% brightness)
+            const fgDark = darkenColor(fg, 0.7);
+
+            // Set CSS variables
+            document.documentElement.style.setProperty('--fg-dark', fgDark);
+            document.documentElement.style.setProperty('--accent-color', accent);
+
             document.body.style.backgroundColor = bg;
             document.body.style.color = fg;
 
@@ -801,6 +810,23 @@ HTML = """
 
             // Update button primary color
             document.querySelector('.btn-primary').style.backgroundColor = accent;
+        }
+
+        // Darken a hex color by a factor (0-1, where 1 is original brightness)
+        function darkenColor(hex, factor) {
+            // Parse hex color
+            const rgb = parseInt(hex.slice(1), 16);
+            let r = (rgb >> 16) & 0xff;
+            let g = (rgb >> 8) & 0xff;
+            let b = rgb & 0xff;
+
+            // Apply darkening factor
+            r = Math.floor(r * factor);
+            g = Math.floor(g * factor);
+            b = Math.floor(b * factor);
+
+            // Convert back to hex
+            return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
         }
 
         // Update slider thumb color dynamically
