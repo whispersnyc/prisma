@@ -1,7 +1,7 @@
 import wx
 from PIL import Image, ImageEnhance
 from json import loads
-from os import path
+from os import path, remove
 import sys
 from main import gen_colors, get_wallpaper, home
 
@@ -51,7 +51,7 @@ class ColorPanel(wx.Panel):
 
 class PrismaFrame(wx.Frame):
     def __init__(self):
-        super().__init__(None, title="Prisma - Pywal Color Generator", size=(820, 750))
+        super().__init__(None, title="Prisma - Pywal Color Generator", size=(900, 800))
 
         # State variables
         self.current_image_path = None
@@ -61,6 +61,7 @@ class PrismaFrame(wx.Frame):
         self.saturation = 50  # 0-100, 50 is normal
         self.contrast = 50    # 0-100, 50 is normal
         self.original_image = None  # Store original PIL image for preview adjustments
+        self.adjusted_image_path = None  # Track temp file for cleanup
 
         # Load existing pywal colors if available
         self.load_pywal_colors()
@@ -104,72 +105,112 @@ class PrismaFrame(wx.Frame):
 
     def create_widgets(self):
         """Create all GUI widgets"""
-        bg_color = self.colors.get("background", "#000000")
-        fg_color = self.colors.get("foreground", "#ffffff")
+        bg_color = self.colors.get("background", "#1a1a1a")
+        fg_color = self.colors.get("foreground", "#e0e0e0")
+        accent_color = self.colors.get("color4", "#5588dd")
 
-        # Main sizer
+        # Main sizer with padding
         main_sizer = wx.BoxSizer(wx.VERTICAL)
+        main_sizer.Add((0, 15), 0)  # Top spacing
 
-        # Image preview section
-        preview_label = wx.StaticText(self.panel, label="Image Preview")
-        preview_label.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
-        preview_label.SetForegroundColour(fg_color)
-        preview_label.SetBackgroundColour(bg_color)
-        main_sizer.Add(preview_label, 0, wx.ALIGN_CENTER | wx.TOP, 10)
+        # Image preview section with border
+        preview_panel = wx.Panel(self.panel)
+        preview_panel.SetBackgroundColour(bg_color)
+        preview_sizer = wx.BoxSizer(wx.VERTICAL)
 
-        # Image display
-        self.image_bitmap = wx.StaticBitmap(self.panel)
-        self.image_bitmap.SetBackgroundColour(bg_color)
-        main_sizer.Add(self.image_bitmap, 0, wx.ALIGN_CENTER | wx.ALL, 10)
+        preview_label = wx.StaticText(preview_panel, label="IMAGE PREVIEW")
+        preview_label.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        preview_label.SetForegroundColour(accent_color)
+        preview_sizer.Add(preview_label, 0, wx.ALIGN_CENTER | wx.BOTTOM, 8)
+
+        # Image display with border
+        image_container = wx.Panel(preview_panel, style=wx.BORDER_SIMPLE)
+        image_container.SetBackgroundColour("#0a0a0a")
+        image_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        self.image_bitmap = wx.StaticBitmap(image_container)
+        self.image_bitmap.SetBackgroundColour("#0a0a0a")
+        image_sizer.Add(self.image_bitmap, 0, wx.ALL, 5)
 
         # Loading text (will be hidden when image loads)
-        self.loading_text = wx.StaticText(self.panel, label="Loading...")
-        self.loading_text.SetForegroundColour(fg_color)
-        self.loading_text.SetBackgroundColour(bg_color)
-        main_sizer.Add(self.loading_text, 0, wx.ALIGN_CENTER | wx.ALL, 5)
+        self.loading_text = wx.StaticText(image_container, label="Loading...")
+        self.loading_text.SetForegroundColour("#888888")
+        self.loading_text.SetBackgroundColour("#0a0a0a")
+        image_sizer.Add(self.loading_text, 0, wx.ALIGN_CENTER | wx.ALL, 20)
 
-        # Image adjustment sliders section
+        image_container.SetSizer(image_sizer)
+        preview_sizer.Add(image_container, 0, wx.ALIGN_CENTER)
+
+        preview_panel.SetSizer(preview_sizer)
+        main_sizer.Add(preview_panel, 0, wx.ALIGN_CENTER | wx.LEFT | wx.RIGHT, 20)
+
+        main_sizer.Add((0, 15), 0)  # Spacing
+
+        # Image adjustment sliders section with border
+        adjustment_panel = wx.Panel(self.panel, style=wx.BORDER_SIMPLE)
+        adjustment_panel.SetBackgroundColour(bg_color)
         adjustment_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        adj_label = wx.StaticText(adjustment_panel, label="IMAGE ADJUSTMENTS")
+        adj_label.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        adj_label.SetForegroundColour(accent_color)
+        adjustment_sizer.Add(adj_label, 0, wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, 8)
 
         # Saturation slider
         saturation_box = wx.BoxSizer(wx.HORIZONTAL)
-        saturation_label = wx.StaticText(self.panel, label="Saturation:")
+        saturation_label = wx.StaticText(adjustment_panel, label="Saturation")
+        saturation_label.SetFont(wx.Font(9, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
         saturation_label.SetForegroundColour(fg_color)
-        saturation_label.SetBackgroundColour(bg_color)
-        saturation_box.Add(saturation_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        saturation_box.Add(saturation_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 15)
 
-        self.saturation_slider = wx.Slider(self.panel, value=50, minValue=0, maxValue=100,
-                                          style=wx.SL_HORIZONTAL | wx.SL_LABELS, size=(400, -1))
+        self.saturation_slider = wx.Slider(adjustment_panel, value=50, minValue=0, maxValue=100,
+                                          style=wx.SL_HORIZONTAL, size=(450, -1))
         self.saturation_slider.Bind(wx.EVT_SLIDER, self.on_saturation_change)
-        saturation_box.Add(self.saturation_slider, 1, wx.EXPAND)
+        saturation_box.Add(self.saturation_slider, 1, wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
 
-        adjustment_sizer.Add(saturation_box, 0, wx.EXPAND | wx.ALL, 5)
+        self.saturation_value = wx.StaticText(adjustment_panel, label="50")
+        self.saturation_value.SetFont(wx.Font(9, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+        self.saturation_value.SetForegroundColour(accent_color)
+        saturation_box.Add(self.saturation_value, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 10)
+
+        adjustment_sizer.Add(saturation_box, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         # Contrast slider
         contrast_box = wx.BoxSizer(wx.HORIZONTAL)
-        contrast_label = wx.StaticText(self.panel, label="Contrast:")
+        contrast_label = wx.StaticText(adjustment_panel, label="Contrast")
+        contrast_label.SetFont(wx.Font(9, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
         contrast_label.SetForegroundColour(fg_color)
-        contrast_label.SetBackgroundColour(bg_color)
-        contrast_box.Add(contrast_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        contrast_box.Add(contrast_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 15)
 
-        self.contrast_slider = wx.Slider(self.panel, value=50, minValue=0, maxValue=100,
-                                        style=wx.SL_HORIZONTAL | wx.SL_LABELS, size=(400, -1))
+        self.contrast_slider = wx.Slider(adjustment_panel, value=50, minValue=0, maxValue=100,
+                                        style=wx.SL_HORIZONTAL, size=(450, -1))
         self.contrast_slider.Bind(wx.EVT_SLIDER, self.on_contrast_change)
-        contrast_box.Add(self.contrast_slider, 1, wx.EXPAND)
+        contrast_box.Add(self.contrast_slider, 1, wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
 
-        adjustment_sizer.Add(contrast_box, 0, wx.EXPAND | wx.ALL, 5)
+        self.contrast_value = wx.StaticText(adjustment_panel, label="50")
+        self.contrast_value.SetFont(wx.Font(9, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+        self.contrast_value.SetForegroundColour(accent_color)
+        contrast_box.Add(self.contrast_value, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 10)
 
-        main_sizer.Add(adjustment_sizer, 0, wx.ALIGN_CENTER | wx.ALL, 10)
+        adjustment_sizer.Add(contrast_box, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
-        # Color grid section
-        color_label = wx.StaticText(self.panel, label="Color Palette")
-        color_label.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
-        color_label.SetForegroundColour(fg_color)
-        color_label.SetBackgroundColour(bg_color)
-        main_sizer.Add(color_label, 0, wx.ALIGN_CENTER | wx.TOP, 10)
+        adjustment_panel.SetSizer(adjustment_sizer)
+        main_sizer.Add(adjustment_panel, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
+
+        main_sizer.Add((0, 15), 0)  # Spacing
+
+        # Color grid section with border
+        palette_panel = wx.Panel(self.panel, style=wx.BORDER_SIMPLE)
+        palette_panel.SetBackgroundColour(bg_color)
+        palette_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        color_label = wx.StaticText(palette_panel, label="COLOR PALETTE")
+        color_label.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        color_label.SetForegroundColour(accent_color)
+        palette_sizer.Add(color_label, 0, wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, 8)
 
         # Create grid for colors (2 rows x 9 columns)
-        grid_sizer = wx.GridSizer(rows=2, cols=9, hgap=4, vgap=4)
+        grid_sizer = wx.GridSizer(rows=2, cols=9, hgap=6, vgap=6)
 
         # Color pairs for the grid
         color_pairs = [
@@ -188,52 +229,61 @@ class PrismaFrame(wx.Frame):
         for color1, color2 in color_pairs:
             # First color (top row)
             color1_val = self.colors.get(color1, "#808080")
-            panel1 = ColorPanel(self.panel, color1, color1_val)
-            grid_sizer.Add(panel1, 0, wx.ALL, 2)
+            panel1 = ColorPanel(palette_panel, color1, color1_val)
+            grid_sizer.Add(panel1, 0, wx.ALL, 0)
             self.color_panels[color1] = panel1
 
         for color1, color2 in color_pairs:
             # Second color (bottom row)
             color2_val = self.colors.get(color2, "#808080")
-            panel2 = ColorPanel(self.panel, color2, color2_val)
-            grid_sizer.Add(panel2, 0, wx.ALL, 2)
+            panel2 = ColorPanel(palette_panel, color2, color2_val)
+            grid_sizer.Add(panel2, 0, wx.ALL, 0)
             self.color_panels[color2] = panel2
 
-        main_sizer.Add(grid_sizer, 0, wx.ALIGN_CENTER | wx.ALL, 10)
+        palette_sizer.Add(grid_sizer, 0, wx.ALIGN_CENTER | wx.ALL, 10)
+        palette_panel.SetSizer(palette_sizer)
+        main_sizer.Add(palette_panel, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 20)
 
-        # Controls section
-        controls_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        main_sizer.Add((0, 15), 0)  # Spacing
+
+        # Controls and buttons section
+        controls_panel = wx.Panel(self.panel)
+        controls_panel.SetBackgroundColour(bg_color)
+        controls_sizer = wx.BoxSizer(wx.VERTICAL)
 
         # Light mode checkbox
-        self.light_mode_checkbox = wx.CheckBox(self.panel, label="Light Mode")
+        checkbox_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.light_mode_checkbox = wx.CheckBox(controls_panel, label="Light Mode Color Scheme")
         self.light_mode_checkbox.SetValue(self.light_mode)
+        self.light_mode_checkbox.SetFont(wx.Font(9, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
         self.light_mode_checkbox.SetForegroundColour(fg_color)
         self.light_mode_checkbox.SetBackgroundColour(bg_color)
         self.light_mode_checkbox.Bind(wx.EVT_CHECKBOX, self.on_toggle_light_mode)
-        controls_sizer.Add(self.light_mode_checkbox, 0, wx.ALL, 5)
-
-        main_sizer.Add(controls_sizer, 0, wx.ALIGN_CENTER | wx.ALL, 10)
+        checkbox_sizer.Add(self.light_mode_checkbox, 0, wx.ALL, 0)
+        controls_sizer.Add(checkbox_sizer, 0, wx.ALIGN_CENTER | wx.BOTTOM, 10)
 
         # Buttons section
         button_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
         # Select File button
-        self.select_btn = wx.Button(self.panel, label="Select File", size=(150, 40))
-        self.select_btn.SetBackgroundColour(self.colors.get("color4", "#4080ff"))
+        self.select_btn = wx.Button(controls_panel, label="SELECT IMAGE", size=(180, 45))
+        self.select_btn.SetBackgroundColour("#333333")
         self.select_btn.SetForegroundColour(fg_color)
-        self.select_btn.SetFont(wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        self.select_btn.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
         self.select_btn.Bind(wx.EVT_BUTTON, self.on_select_file)
-        button_sizer.Add(self.select_btn, 0, wx.ALL, 10)
+        button_sizer.Add(self.select_btn, 0, wx.ALL, 8)
 
         # Generate button
-        self.generate_btn = wx.Button(self.panel, label="Generate", size=(150, 40))
-        self.generate_btn.SetBackgroundColour(self.colors.get("color2", "#40ff80"))
-        self.generate_btn.SetForegroundColour(fg_color)
-        self.generate_btn.SetFont(wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        self.generate_btn = wx.Button(controls_panel, label="GENERATE COLORS", size=(180, 45))
+        self.generate_btn.SetBackgroundColour(accent_color)
+        self.generate_btn.SetForegroundColour("#ffffff")
+        self.generate_btn.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
         self.generate_btn.Bind(wx.EVT_BUTTON, self.on_generate)
-        button_sizer.Add(self.generate_btn, 0, wx.ALL, 10)
+        button_sizer.Add(self.generate_btn, 0, wx.ALL, 8)
 
-        main_sizer.Add(button_sizer, 0, wx.ALIGN_CENTER | wx.ALL, 10)
+        controls_sizer.Add(button_sizer, 0, wx.ALIGN_CENTER)
+        controls_panel.SetSizer(controls_sizer)
+        main_sizer.Add(controls_panel, 0, wx.ALIGN_CENTER | wx.BOTTOM, 20)
 
         self.panel.SetSizer(main_sizer)
 
@@ -335,11 +385,13 @@ class PrismaFrame(wx.Frame):
     def on_saturation_change(self, event):
         """Handle saturation slider change"""
         self.saturation = self.saturation_slider.GetValue()
+        self.saturation_value.SetLabel(str(self.saturation))
         self.update_preview()
 
     def on_contrast_change(self, event):
         """Handle contrast slider change"""
         self.contrast = self.contrast_slider.GetValue()
+        self.contrast_value.SetLabel(str(self.contrast))
         self.update_preview()
 
     def adjust_and_save_image(self, image_path):
@@ -401,9 +453,15 @@ class PrismaFrame(wx.Frame):
                          "Error", wx.OK | wx.ICON_ERROR)
             return
 
+        # Check if adjustments were made (different from default 50/50)
+        is_adjusted = (self.saturation != 50 or self.contrast != 50)
+
         try:
             # Adjust and save image with saturation and contrast
             adjusted_image_path = self.adjust_and_save_image(self.current_image_path)
+
+            # Store the path for potential cleanup
+            self.adjusted_image_path = adjusted_image_path if is_adjusted else None
 
             # Generate colors using main.py function with adjusted image
             gen_colors(adjusted_image_path, apply_config=False, light_mode=self.light_mode)
@@ -413,6 +471,14 @@ class PrismaFrame(wx.Frame):
 
             # Update UI
             self.update_colors()
+
+            # Clean up temporary adjusted image file if it was created
+            if is_adjusted and self.adjusted_image_path and path.isfile(self.adjusted_image_path):
+                try:
+                    remove(self.adjusted_image_path)
+                    print(f"Cleaned up temporary file: {self.adjusted_image_path}")
+                except Exception as cleanup_error:
+                    print(f"Warning: Could not delete temporary file: {cleanup_error}")
 
             wx.MessageBox("Colors generated successfully!",
                          "Success", wx.OK | wx.ICON_INFORMATION)
@@ -424,8 +490,9 @@ class PrismaFrame(wx.Frame):
 
     def update_colors(self):
         """Update all color displays in the GUI"""
-        bg_color = self.colors.get("background", "#000000")
-        fg_color = self.colors.get("foreground", "#ffffff")
+        bg_color = self.colors.get("background", "#1a1a1a")
+        fg_color = self.colors.get("foreground", "#e0e0e0")
+        accent_color = self.colors.get("color4", "#5588dd")
 
         # Update frame and panel background
         self.SetBackgroundColour(bg_color)
@@ -437,19 +504,18 @@ class PrismaFrame(wx.Frame):
             panel.update_color(color_val)
 
         # Update button colors
-        self.select_btn.SetBackgroundColour(self.colors.get("color4", "#4080ff"))
+        self.select_btn.SetBackgroundColour("#333333")
         self.select_btn.SetForegroundColour(fg_color)
-        self.generate_btn.SetBackgroundColour(self.colors.get("color2", "#40ff80"))
-        self.generate_btn.SetForegroundColour(fg_color)
+        self.generate_btn.SetBackgroundColour(accent_color)
+        self.generate_btn.SetForegroundColour("#ffffff")
 
-        # Update checkbox and labels
+        # Update slider value labels with accent color
+        self.saturation_value.SetForegroundColour(accent_color)
+        self.contrast_value.SetForegroundColour(accent_color)
+
+        # Update checkbox
         self.light_mode_checkbox.SetForegroundColour(fg_color)
         self.light_mode_checkbox.SetBackgroundColour(bg_color)
-
-        for child in self.panel.GetChildren():
-            if isinstance(child, wx.StaticText):
-                child.SetForegroundColour(fg_color)
-                child.SetBackgroundColour(bg_color)
 
         # Refresh the display
         self.panel.Refresh()
