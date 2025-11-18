@@ -168,8 +168,17 @@ def main(test_args=None, test_config=None):
         current_wal = home+"/AppData/Roaming/Microsoft/Windows/Themes/TranscodedWallpaper"
         print("Using fallback wallpaper path: " + current_wal)
 
+        # check if fallback file exists
+        if not path.isfile(current_wal):
+            fatal("Could not detect wallpaper and fallback file doesn't exist.\n"
+                  "Please set a wallpaper in Windows settings first.")
+
     # generate colors and apply config
-    gen_colors(current_wal, apply_config=not args.colors_only)
+    try:
+        gen_colors(current_wal, apply_config=not args.colors_only)
+    except Exception as e:
+        fatal("Error generating colors from wallpaper: " + str(e) + "\n"
+              "The wallpaper file may be corrupted or in an unsupported format.")
 
     print("\nDone.")
     exit()
