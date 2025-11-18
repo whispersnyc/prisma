@@ -59,7 +59,8 @@ Edit the new C:/Users/USER/AppData/Local/prisma/config.json file with any text e
         "obsidian.txt": "C:/Users/USER/Documents/Notes/.obsidian/themes/pywal.css"
     },
 
-    "wsl": "Manjaro"
+    "wsl": "Manjaro",
+    "light_mode": false
 }
 ```
 
@@ -74,7 +75,11 @@ Edit the new C:/Users/USER/AppData/Local/prisma/config.json file with any text e
 - The available color names are color0, color1...color15, background, foreground and cursor. The available components are Hue (0-360), Saturation (0%-100%), Lightness (0%-100%), Red (0-255), Green (0-255) and Blue (0-255).
 
 ### WSL
-- Set the WSL variable to the name of your WSL distribution if you want wpgtk integration. If WSL is not installed, leave it empty ("").  
+- Set the WSL variable to the name of your WSL distribution if you want wpgtk integration. If WSL is not installed, leave it empty ("").
+
+### Light Mode
+- Set `light_mode` to `true` to generate light mode color schemes instead of dark mode. Defaults to `false` if not specified.
+- Can be overridden with the `-lm` flag when running the tool.  
   
   
   
@@ -86,6 +91,7 @@ Reads current Windows wallpaper, generates pywal color scheme, and applies to te
 options:
   -h, --help            show this help message and exit
   -co, --colors-only    generate colors and format JSON only, skip config-based templates and WSL
+  -lm, --light-mode     generate light mode color scheme instead of dark mode
 ```
 
 
@@ -93,6 +99,8 @@ options:
 
 - `.\prisma.exe` reads your current Windows wallpaper, generates a pywal color scheme from it, and applies all configured templates and WSL integration.
 - `.\prisma.exe -co` reads your current Windows wallpaper and generates a pywal color scheme, but skips applying templates and WSL integration. This is useful if you only want to generate the colors.json file for use with other tools.
+- `.\prisma.exe -lm` generates a light mode color scheme instead of dark mode, overriding the config setting.
+- `.\prisma.exe -co -lm` generates a light mode color scheme and skips templates/WSL integration.
 
   
 

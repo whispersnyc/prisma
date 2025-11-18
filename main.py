@@ -45,20 +45,21 @@ class Parser(argparse.ArgumentParser):
         fatal("error: "+message, self)
 
 
-def gen_colors(img, apply_config=True):
+def gen_colors(img, apply_config=True, light_mode=False):
     """Generates color scheme from image and applies to templates.
 
     Parameters:
         img (string): path leading to input image
         apply_config (bool): whether to apply templates and WSL config
+        light_mode (bool): generate light mode color scheme
     """
 
     # get/create color scheme
     wal = pywal.colors.colors_to_dict(
             pywal.colors.saturate_colors(
-                pywal.backends.wal.get(img, False),
+                pywal.backends.wal.get(img, light_mode),
                 ""), img)
-    print("Generated pywal colors")
+    print("Generated pywal colors" + (" (light mode)" if light_mode else ""))
 
     # write formatted JSON file
     json_path = home+"/.cache/wal/colors.json"
@@ -158,7 +159,12 @@ def main(test_args=None, test_config=None):
         "and applies to templates."
     parser.add_argument("-co", "--colors-only", action="store_true",
             help="generate colors and format JSON only, skip config-based templates and WSL")
+    parser.add_argument("-lm", "--light-mode", action="store_true",
+            help="generate light mode color scheme instead of dark mode")
     args = parser.parse_args(test_args)
+
+    # determine light mode: flag takes priority over config, default to False
+    light_mode = args.light_mode if args.light_mode else config.get("light_mode", False)
 
     # get current wallpaper
     try:
@@ -176,7 +182,7 @@ def main(test_args=None, test_config=None):
 
     # generate colors and apply config
     try:
-        gen_colors(current_wal, apply_config=not args.colors_only)
+        gen_colors(current_wal, apply_config=not args.colors_only, light_mode=light_mode)
     except Exception as e:
         fatal("Error generating colors from wallpaper: " + str(e) + "\n"
               "The wallpaper file may be corrupted or in an unsupported format.")
