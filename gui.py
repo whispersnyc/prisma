@@ -83,6 +83,25 @@ class PrismaAPI:
         self.wsl_enabled = not self.wsl_enabled
         return self.wsl_enabled
 
+    def open_config_in_editor(self):
+        """Open config file in default editor"""
+        import subprocess
+        import sys
+        try:
+            if sys.platform == 'win32':
+                # Windows: use default editor
+                subprocess.run(['start', '', config_path], shell=True)
+            elif sys.platform == 'darwin':
+                # macOS: use open command
+                subprocess.run(['open', config_path])
+            else:
+                # Linux: try xdg-open
+                subprocess.run(['xdg-open', config_path])
+            return {"success": True}
+        except Exception as e:
+            print(f"Error opening config: {e}")
+            return {"success": False, "error": str(e)}
+
     def load_pywal_colors(self):
         """Load colors from pywal cache if it exists"""
         colors_path = home + "/.cache/wal/colors.json"
@@ -479,7 +498,7 @@ HTML = """
             overflow-x: auto;
             overflow-y: hidden;
             white-space: nowrap;
-            padding: 10px 0;
+            padding: 10px 20px;
         }
 
         .template-buttons {
@@ -940,10 +959,19 @@ HTML = """
             }
         }
 
-        // Open settings (placeholder)
-        function openSettings() {
-            // For now, just show a message with config path
-            showMessage('Config location: ' + (navigator.platform.includes('Win') ? 'C:/Users/[USER]/AppData/Local/prisma/config.json' : '~/AppData/Local/prisma/config.json'), 'success');
+        // Open settings
+        async function openSettings() {
+            try {
+                const result = await pywebview.api.open_config_in_editor();
+                if (result.success) {
+                    showMessage('Opening config file in editor...', 'success');
+                } else {
+                    showMessage('Error opening config: ' + result.error, 'error');
+                }
+            } catch (e) {
+                console.error('Error opening settings:', e);
+                showMessage('Error opening config file', 'error');
+            }
         }
 
         // Saturation slider
