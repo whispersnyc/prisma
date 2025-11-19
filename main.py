@@ -1,6 +1,6 @@
 import argparse
 from colorsys import rgb_to_hls
-from subprocess import Popen, check_output, DEVNULL, CalledProcessError
+from subprocess import Popen, check_output, DEVNULL, PIPE, CalledProcessError
 from json import loads, dumps
 import os
 from os import path
@@ -65,7 +65,12 @@ def gen_colors(img, apply_config=True, light_mode=False, templates=None, wsl=Non
     active_config = config_dict if config_dict is not None else config
 
     # Track template application results
-    results = {"succeeded": [], "failed": []}
+    results = {
+        "succeeded": [],
+        "failed": [],
+        "wsl_succeeded": [],
+        "wsl_failed": []
+    }
 
     # get/create color scheme
     wal = pywal.colors.colors_to_dict(
@@ -108,12 +113,53 @@ def gen_colors(img, apply_config=True, light_mode=False, templates=None, wsl=Non
 
     # Apply to each distro
     for wsl_distro in wsl_distros:
-        wsl_cmd = "wsl -d " + wsl_distro
-        wsl_img = convert(img)
-        Popen(wsl_cmd + " -- wpg -s \"%s\"" % wsl_img, shell=True)
-        img_name = wsl_img.replace("/", "_").replace(" ", "\\ ")
-        Popen(wsl_cmd + " -- rm ~/.config/wpg/schemes/" + img_name[:img_name.rfind('.')] + '*', shell=True)
-        print(f"Applied WSL wpgtk theme to '{wsl_distro}'")
+        try:
+            # First, check if the distro exists
+            check_cmd = f'wsl -d {wsl_distro} -- echo "test"'
+            check_result = Popen(check_cmd, shell=True, stdout=DEVNULL, stderr=PIPE)
+            _, stderr = check_result.communicate()
+
+            if check_result.returncode != 0 or b"WSL_E_DISTRO_NOT_FOUND" in stderr:
+                error_msg = f"Distro '{wsl_distro}' not found or not installed"
+                print(f"Skipped WSL '{wsl_distro}' ({error_msg})")
+                results["wsl_failed"].append({"name": wsl_distro, "error": error_msg})
+                continue
+
+            # Check if wpg is installed
+            wpg_check = f'wsl -d {wsl_distro} -- command -v wpg'
+            wpg_result = Popen(wpg_check, shell=True, stdout=DEVNULL, stderr=DEVNULL)
+            wpg_result.communicate()
+
+            if wpg_result.returncode != 0:
+                error_msg = "wpg (wpgtk) is not installed in this distro"
+                print(f"Skipped WSL '{wsl_distro}' ({error_msg})")
+                results["wsl_failed"].append({"name": wsl_distro, "error": error_msg})
+                continue
+
+            # Apply wpgtk theme
+            wsl_img = convert(img)
+            wpg_cmd = f'wsl -d {wsl_distro} -- wpg -s "{wsl_img}"'
+            wpg_process = Popen(wpg_cmd, shell=True, stdout=DEVNULL, stderr=PIPE)
+            _, wpg_stderr = wpg_process.communicate()
+
+            if wpg_process.returncode != 0:
+                error_msg = f"wpg command failed: {wpg_stderr.decode('utf-8', errors='ignore').strip()}"
+                print(f"Error applying WSL wpgtk theme to '{wsl_distro}': {error_msg}")
+                results["wsl_failed"].append({"name": wsl_distro, "error": error_msg})
+                continue
+
+            # Clean up old schemes (errors here are non-fatal)
+            img_name = wsl_img.replace("/", "_").replace(" ", "\\ ")
+            cleanup_cmd = f'wsl -d {wsl_distro} -- rm -f ~/.config/wpg/schemes/{img_name[:img_name.rfind(".")]}* 2>/dev/null'
+            Popen(cleanup_cmd, shell=True, stdout=DEVNULL, stderr=DEVNULL).communicate()
+
+            print(f"Applied WSL wpgtk theme to '{wsl_distro}'")
+            results["wsl_succeeded"].append(wsl_distro)
+
+        except Exception as e:
+            error_msg = str(e)
+            print(f"Error applying WSL wpgtk theme to '{wsl_distro}': {error_msg}")
+            results["wsl_failed"].append({"name": wsl_distro, "error": error_msg})
 
     # apply templates - merge enabled and disabled for lookup
     all_templates = {}

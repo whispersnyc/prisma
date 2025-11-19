@@ -856,6 +856,20 @@ HTML = """
             opacity: 1;
         }
 
+        .results-category-header {
+            font-size: 16px;
+            font-weight: bold;
+            color: #e0e0e0;
+            margin-top: 15px;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #444444;
+        }
+
+        .results-category-header:first-child {
+            margin-top: 0;
+        }
+
         .results-section {
             margin-bottom: 15px;
         }
@@ -1736,9 +1750,13 @@ HTML = """
                     updateColorGrid(result.colors);
                     updateTheme(result.colors);
 
-                    // Show results popup if templates were applied
-                    if (result.template_results &&
-                        (result.template_results.succeeded.length > 0 || result.template_results.failed.length > 0)) {
+                    // Show results popup if templates or WSL were applied
+                    const hasTemplateResults = result.template_results &&
+                        (result.template_results.succeeded.length > 0 || result.template_results.failed.length > 0);
+                    const hasWSLResults = result.template_results &&
+                        (result.template_results.wsl_succeeded.length > 0 || result.template_results.wsl_failed.length > 0);
+
+                    if (hasTemplateResults || hasWSLResults) {
                         showResultsPopup(result.template_results);
                     } else {
                         showMessage('Colors generated successfully!', 'success');
@@ -1764,7 +1782,13 @@ HTML = """
 
             let html = '';
 
-            // Success section
+            // Templates section header
+            const hasTemplateResults = (results.succeeded && results.succeeded.length > 0) || (results.failed && results.failed.length > 0);
+            if (hasTemplateResults) {
+                html += '<div class="results-category-header">Templates</div>';
+            }
+
+            // Template success section
             if (results.succeeded && results.succeeded.length > 0) {
                 html += '<div class="results-section">';
                 html += '<div class="results-section-title success">✓ Successfully Applied (' + results.succeeded.length + ')</div>';
@@ -1778,7 +1802,7 @@ HTML = """
                 html += '</div>';
             }
 
-            // Failed section
+            // Template failed section
             if (results.failed && results.failed.length > 0) {
                 html += '<div class="results-section">';
                 html += '<div class="results-section-title error">✗ Failed (' + results.failed.length + ')</div>';
@@ -1793,11 +1817,57 @@ HTML = """
                 html += '</div>';
             }
 
+            // WSL section header
+            const hasWSLResults = (results.wsl_succeeded && results.wsl_succeeded.length > 0) || (results.wsl_failed && results.wsl_failed.length > 0);
+            if (hasWSLResults) {
+                html += '<div class="results-category-header">WSL Distros</div>';
+            }
+
+            // WSL success section
+            if (results.wsl_succeeded && results.wsl_succeeded.length > 0) {
+                html += '<div class="results-section">';
+                html += '<div class="results-section-title success">✓ Successfully Applied (' + results.wsl_succeeded.length + ')</div>';
+                html += '<ul class="results-list">';
+                results.wsl_succeeded.forEach(distro => {
+                    html += '<li class="results-item success">';
+                    html += '<div class="results-item-name">' + distro + '</div>';
+                    html += '</li>';
+                });
+                html += '</ul>';
+                html += '</div>';
+            }
+
+            // WSL failed section
+            if (results.wsl_failed && results.wsl_failed.length > 0) {
+                html += '<div class="results-section">';
+                html += '<div class="results-section-title error">✗ Failed (' + results.wsl_failed.length + ')</div>';
+                html += '<ul class="results-list">';
+                results.wsl_failed.forEach(item => {
+                    html += '<li class="results-item failed">';
+                    html += '<div class="results-item-name">' + item.name + '</div>';
+                    html += '<div class="results-item-error">' + item.error + '</div>';
+                    html += '</li>';
+                });
+                html += '</ul>';
+                html += '</div>';
+            }
+
             // Summary
-            const total = (results.succeeded ? results.succeeded.length : 0) + (results.failed ? results.failed.length : 0);
-            const successCount = results.succeeded ? results.succeeded.length : 0;
+            const templateTotal = (results.succeeded ? results.succeeded.length : 0) + (results.failed ? results.failed.length : 0);
+            const templateSuccess = results.succeeded ? results.succeeded.length : 0;
+            const wslTotal = (results.wsl_succeeded ? results.wsl_succeeded.length : 0) + (results.wsl_failed ? results.wsl_failed.length : 0);
+            const wslSuccess = results.wsl_succeeded ? results.wsl_succeeded.length : 0;
+
             html += '<div class="results-summary">';
-            html += 'Total: ' + successCount + ' of ' + total + ' templates applied successfully';
+            if (hasTemplateResults) {
+                html += 'Templates: ' + templateSuccess + ' of ' + templateTotal + ' applied successfully';
+            }
+            if (hasTemplateResults && hasWSLResults) {
+                html += '<br>';
+            }
+            if (hasWSLResults) {
+                html += 'WSL Distros: ' + wslSuccess + ' of ' + wslTotal + ' applied successfully';
+            }
             html += '</div>';
 
             content.innerHTML = html;
