@@ -51,8 +51,8 @@ class PrismaAPI:
         """Get config information for UI"""
         templates = {}
         for template_file in self.config.get("templates", {}).keys():
-            # Convert filename to display name (e.g., "discord.txt" -> "DISCORD")
-            name = template_file.replace(".txt", "").upper()
+            # Convert filename to display name (e.g., "discord.txt" -> "DISCORD", "example.prisma" -> "EXAMPLE")
+            name = template_file.replace(".txt", "").replace(".prisma", "").upper()
             templates[template_file] = {
                 "name": name,
                 "active": template_file in self.active_templates

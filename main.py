@@ -8,6 +8,7 @@ import pywal
 import pywal.backends.wal
 from shutil import copytree
 import winreg
+from template_parser import apply_template
 
 home = path.expanduser("~")
 data_path = home + "\\AppData\\Local\\prisma"
@@ -113,22 +114,34 @@ def gen_colors(img, apply_config=True, light_mode=False, templates=None, wsl=Non
         if not path.exists(template := (template_path + '\\' + base_name)):
             print("Skipped %s template (either template file or output folder is missing)" % base_name)
             continue
-        with open(template, encoding='cp850') as base:
-            base = base.read()
-            for k in wal.keys():
-                # process replacement of base, ex. {color0}
-                base = base.replace("{%s}"%k, wal[k])
-                if '{'+k+'.' in base:
-                    # process replacement of component, ex. {color0.r}/{color0.h}
-                    rgb = tuple(int(wal[k].strip("#")[i:i+2], 16) for i in (0, 2, 4))
-                    hls = rgb_to_hls(*[j/255.0 for j in rgb])
-                    hls = [str(hls[i]*100)+"%" if i > 0 else hls[i]*360 for i in range(3)]
-                    for c in range(3):
-                        base = base.replace("{%s.%s}" % (k, "rgb"[c]), str(rgb[c]))
-                        base = base.replace("{%s.%s}" % (k, "hls"[c]), str(hls[c]))
-            with open(output, "w", encoding='cp850') as output:
-                output.write(base)
-        print("Applied %s template" % base_name)
+
+        # Check if this is a .prisma template or legacy .txt template
+        if base_name.endswith('.prisma'):
+            # Use new template parser
+            try:
+                output_resolved = output.replace("HOME", home)
+                apply_template(template, wal, output_resolved)
+                print("Applied %s template (new format)" % base_name)
+            except Exception as e:
+                print("Error applying %s template: %s" % (base_name, str(e)))
+        else:
+            # Legacy .txt template handling
+            with open(template, encoding='cp850') as base:
+                base = base.read()
+                for k in wal.keys():
+                    # process replacement of base, ex. {color0}
+                    base = base.replace("{%s}"%k, wal[k])
+                    if '{'+k+'.' in base:
+                        # process replacement of component, ex. {color0.r}/{color0.h}
+                        rgb = tuple(int(wal[k].strip("#")[i:i+2], 16) for i in (0, 2, 4))
+                        hls = rgb_to_hls(*[j/255.0 for j in rgb])
+                        hls = [str(hls[i]*100)+"%" if i > 0 else hls[i]*360 for i in range(3)]
+                        for c in range(3):
+                            base = base.replace("{%s.%s}" % (k, "rgb"[c]), str(rgb[c]))
+                            base = base.replace("{%s.%s}" % (k, "hls"[c]), str(hls[c]))
+                with open(output, "w", encoding='cp850') as output:
+                    output.write(base)
+            print("Applied %s template" % base_name)
 
 
 
@@ -205,7 +218,9 @@ def main(test_args=None, test_config=None):
         templates = config.get("templates", {})
         if templates:
             for template_file, output_path in templates.items():
-                print(f"  - {template_file.replace('.txt', '').upper()}: {template_file} -> {output_path}")
+                display_name = template_file.replace('.txt', '').replace('.prisma', '').upper()
+                template_type = "prisma" if template_file.endswith('.prisma') else "legacy"
+                print(f"  - {display_name} ({template_type}): {template_file} -> {output_path}")
         else:
             print("  (no templates configured)")
         print(f"\nConfig file location: {config_path}")
