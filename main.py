@@ -51,7 +51,7 @@ class Parser(argparse.ArgumentParser):
         fatal("error: "+message, self)
 
 
-def gen_colors(img, apply_config=True, light_mode=False, templates=None, wsl=None):
+def gen_colors(img, apply_config=True, light_mode=False, templates=None, wsl=None, config_dict=None):
     """Generates color scheme from image and applies to templates.
 
     Parameters:
@@ -60,7 +60,11 @@ def gen_colors(img, apply_config=True, light_mode=False, templates=None, wsl=Non
         light_mode (bool): generate light mode color scheme
         templates (set): specific templates to apply (None = all from config)
         wsl (bool): whether to apply WSL (None = use config)
+        config_dict (dict): config dictionary to use (None = use global config)
     """
+
+    # Use provided config or fall back to global config
+    active_config = config_dict if config_dict is not None else config
 
     # get/create color scheme
     wal = pywal.colors.colors_to_dict(
@@ -93,9 +97,9 @@ def gen_colors(img, apply_config=True, light_mode=False, templates=None, wsl=Non
         return
 
     # WSL / wpgtk
-    apply_wsl = wsl if wsl is not None else config.get("wsl")
+    apply_wsl = wsl if wsl is not None else active_config.get("wsl")
     if apply_wsl: # wpgtk
-        wsl_distro = apply_wsl if isinstance(apply_wsl, str) else config.get("wsl")
+        wsl_distro = apply_wsl if isinstance(apply_wsl, str) else active_config.get("wsl")
         if wsl_distro:
             wsl_cmd = "wsl -d " + wsl_distro
             wsl_img = convert(img)
@@ -105,9 +109,9 @@ def gen_colors(img, apply_config=True, light_mode=False, templates=None, wsl=Non
             print("Applied WSL wpgtk theme")
 
     # apply templates
-    templates_to_apply = templates if templates is not None else config.get("templates", {}).keys()
+    templates_to_apply = templates if templates is not None else active_config.get("templates", {}).keys()
     for base_name in templates_to_apply:
-        output = config.get("templates", {}).get(base_name)
+        output = active_config.get("templates", {}).get(base_name)
         if not output:
             print("Skipped %s template (not found in config)" % base_name)
             continue

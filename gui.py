@@ -302,7 +302,8 @@ class PrismaAPI:
                 apply_config=apply_config,
                 light_mode=self.light_mode,
                 templates=self.active_templates if apply_config else None,
-                wsl=wsl_setting if apply_config else False
+                wsl=wsl_setting if apply_config else False,
+                config_dict=self.config
             )
 
             # Reload colors
