@@ -40,6 +40,8 @@ class PrismoAPI:
             self.active_templates = set(self.config.get("templates", {}).keys())
             # Initialize WSL as enabled if defined
             self.wsl_enabled = bool(self.config.get("wsl", "").strip())
+            # Initialize light mode from config
+            self.light_mode = self.config.get("light_mode", False)
             print(f"Loaded config with {len(self.active_templates)} templates")
         except Exception as e:
             print(f"Error loading config: {e}")
@@ -58,12 +60,25 @@ class PrismoAPI:
     def get_config_info(self):
         """Get config information for UI"""
         templates = {}
+
+        # Add enabled templates
         for template_file in self.config.get("templates", {}).keys():
             # Convert filename to display name (e.g., "discord.prismo" -> "DISCORD", "example.prismo" -> "EXAMPLE")
             name = template_file.replace(".prismo", "").upper()
             templates[template_file] = {
                 "name": name,
-                "active": template_file in self.active_templates
+                "active": template_file in self.active_templates,
+                "enabled": True
+            }
+
+        # Add disabled templates
+        for template_file in self.config.get("disabled", {}).keys():
+            # Convert filename to display name
+            name = template_file.replace(".prismo", "").upper()
+            templates[template_file] = {
+                "name": name,
+                "active": False,  # Disabled items are never active
+                "enabled": False
             }
 
         wsl_info = None
@@ -75,16 +90,46 @@ class PrismoAPI:
 
         return {
             "templates": templates,
-            "wsl": wsl_info
+            "wsl": wsl_info,
+            "light_mode": self.light_mode
         }
 
     def toggle_template(self, template_file):
-        """Toggle a template on/off"""
-        if template_file in self.active_templates:
-            self.active_templates.remove(template_file)
-        else:
+        """Toggle a template between enabled/disabled and persist to config"""
+        import yaml
+
+        # Check if template is currently in enabled section
+        if template_file in self.config.get("templates", {}):
+            # Move from templates to disabled
+            output_path = self.config["templates"].pop(template_file)
+            if "disabled" not in self.config:
+                self.config["disabled"] = {}
+            self.config["disabled"][template_file] = output_path
+            self.active_templates.discard(template_file)
+            is_enabled = False
+        elif template_file in self.config.get("disabled", {}):
+            # Move from disabled to templates
+            output_path = self.config["disabled"].pop(template_file)
+            if "templates" not in self.config:
+                self.config["templates"] = {}
+            self.config["templates"][template_file] = output_path
             self.active_templates.add(template_file)
-        return template_file in self.active_templates
+            is_enabled = True
+        else:
+            # Template not found in config
+            return False
+
+        # Save config to file
+        try:
+            with open(config_path, 'w') as f:
+                yaml.dump(self.config, f, default_flow_style=False, sort_keys=False)
+            print(f"Updated config: moved {template_file} to {'templates' if is_enabled else 'disabled'}")
+        except Exception as e:
+            print(f"Error saving config: {e}")
+            # Revert changes on error
+            self.load_config()
+
+        return is_enabled
 
     def toggle_wsl(self):
         """Toggle WSL on/off"""
@@ -260,8 +305,23 @@ class PrismoAPI:
         return None
 
     def toggle_light_mode(self, active):
-        """Toggle light mode"""
+        """Toggle light mode and persist to config"""
+        import yaml
+
         self.light_mode = active
+        self.config["light_mode"] = active
+
+        # Save config to file
+        try:
+            with open(config_path, 'w') as f:
+                yaml.dump(self.config, f, default_flow_style=False, sort_keys=False)
+            print(f"Updated config: light_mode = {active}")
+        except Exception as e:
+            print(f"Error saving config: {e}")
+            # Revert changes on error
+            self.load_config()
+
+        return active
 
     def adjust_and_save_image(self, image_path):
         """Adjust and save image with saturation and contrast"""
@@ -412,6 +472,13 @@ HTML = """
             position: relative;
         }
 
+        .image-panel .btn-icon {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+        }
+
         .image-preview {
             width: 100%;
             height: 300px;
@@ -441,11 +508,11 @@ HTML = """
             height: 40px;
             background: rgba(51, 51, 51, 0.8);
             border: 1px solid #808080;
+            color: #ffffff;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
             transition: all 0.2s;
             backdrop-filter: blur(4px);
         }
@@ -540,6 +607,11 @@ HTML = """
             border-color: #5588dd;
         }
 
+        .btn-template.disabled {
+            opacity: 0.5;
+            font-style: italic;
+        }
+
         .btn-template:hover {
             opacity: 0.8;
         }
@@ -577,6 +649,26 @@ HTML = """
         .btn-icon:hover {
             opacity: 0.8;
             transform: translateY(-1px);
+        }
+
+        .btn-icon .icon {
+            width: 16px;
+            height: 16px;
+            display: block;
+            fill: currentColor;
+        }
+
+        .image-button .icon {
+            width: 20px;
+            height: 20px;
+            display: block;
+            fill: currentColor;
+            pointer-events: none;
+        }
+
+        .image-button svg {
+            width: 20px;
+            height: 20px;
         }
 
         button {
@@ -809,6 +901,24 @@ HTML = """
     </style>
 </head>
 <body>
+    <!-- SVG Icon Definitions -->
+    <svg style="display: none;" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+        <defs>
+            <!-- Settings/Cog Icon -->
+            <symbol id="icon-cog" viewBox="0 0 512 512">
+                <path fill="currentColor" d="M495.9 166.6c3.2 8.7 .5 18.4-6.4 24.6l-43.3 39.4c1.1 8.3 1.7 16.8 1.7 25.4s-.6 17.1-1.7 25.4l43.3 39.4c6.9 6.2 9.6 15.9 6.4 24.6c-4.4 11.9-9.7 23.3-15.8 34.3l-4.7 8.1c-6.6 11-14 21.4-22.1 31.2c-5.9 7.2-15.7 9.6-24.5 6.8l-55.7-17.7c-13.4 10.3-28.2 18.9-44 25.4l-12.5 57.1c-2 9.1-9 16.3-18.2 17.8c-13.8 2.3-28 3.5-42.5 3.5s-28.7-1.2-42.5-3.5c-9.2-1.5-16.2-8.7-18.2-17.8l-12.5-57.1c-15.8-6.5-30.6-15.1-44-25.4L83.1 425.9c-8.8 2.8-18.6 .3-24.5-6.8c-8.1-9.8-15.5-20.2-22.1-31.2l-4.7-8.1c-6.1-11-11.4-22.4-15.8-34.3c-3.2-8.7-.5-18.4 6.4-24.6l43.3-39.4C64.6 273.1 64 264.6 64 256s.6-17.1 1.7-25.4L22.4 191.2c-6.9-6.2-9.6-15.9-6.4-24.6c4.4-11.9 9.7-23.3 15.8-34.3l4.7-8.1c6.6-11 14-21.4 22.1-31.2c5.9-7.2 15.7-9.6 24.5-6.8l55.7 17.7c13.4-10.3 28.2-18.9 44-25.4l12.5-57.1c2-9.1 9-16.3 18.2-17.8C227.3 1.2 241.5 0 256 0s28.7 1.2 42.5 3.5c9.2 1.5 16.2 8.7 18.2 17.8l12.5 57.1c15.8 6.5 30.6 15.1 44 25.4l55.7-17.7c8.8-2.8 18.6-.3 24.5 6.8c8.1 9.8 15.5 20.2 22.1 31.2l4.7 8.1c6.1 11 11.4 22.4 15.8 34.3zM256 336a80 80 0 1 0 0-160 80 80 0 1 0 0 160z"/>
+            </symbol>
+            <!-- Image Icon -->
+            <symbol id="icon-image" viewBox="0 0 512 512">
+                <path fill="currentColor" d="M0 96C0 60.7 28.7 32 64 32H448c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96zM323.8 202.5c-4.5-6.6-11.9-10.5-19.8-10.5s-15.4 3.9-19.8 10.5l-87 127.6L170.7 297c-4.6-5.7-11.5-9-18.7-9s-14.2 3.3-18.7 9l-64 80c-5.8 7.2-6.9 17.1-2.9 25.4s12.4 13.6 21.6 13.6h96 32H424c8.9 0 17.1-4.9 21.2-12.8s3.6-17.4-1.4-24.7l-120-176zM112 192a48 48 0 1 0 0-96 48 48 0 1 0 0 96z"/>
+            </symbol>
+            <!-- Undo Icon -->
+            <symbol id="icon-undo" viewBox="0 0 512 512">
+                <path fill="currentColor" d="M48.5 224H40c-13.3 0-24-10.7-24-24V72c0-9.7 5.8-18.5 14.8-22.2s19.3-1.7 26.2 5.2L98.6 96.6c87.6-86.5 228.7-86.2 315.8 1c87.5 87.5 87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3c-62.2-62.2-162.7-62.5-225.3-1L185 183c6.9 6.9 8.9 17.2 5.2 26.2s-12.5 14.8-22.2 14.8H48.5z"/>
+            </symbol>
+        </defs>
+    </svg>
+
     <div class="main-container">
         <!-- Left Section - Color Palette -->
         <div class="left-section">
@@ -821,7 +931,9 @@ HTML = """
         <div class="right-section">
             <!-- Image Preview -->
             <div class="panel image-panel">
-                <button class="image-button" id="imageButton" onclick="handleImageButton()" title="Select Image">📁</button>
+                <button class="btn-icon" id="imageButton" onclick="handleImageButton()" title="Select Image">
+                    <svg class="icon"><use xlink:href="#icon-image" href="#icon-image"/></svg>
+                </button>
                 <div class="image-preview" id="imagePreview">
                     <div class="placeholder">Loading...</div>
                 </div>
@@ -857,7 +969,9 @@ HTML = """
             <div class="panel">
                 <div class="controls">
                     <div class="button-group">
-                        <button class="btn-icon" onclick="openSettings()" title="Settings">⚙️</button>
+                        <button class="btn-icon" onclick="openSettings()" title="Settings">
+                            <svg class="icon"><use xlink:href="#icon-cog" href="#icon-cog"/></svg>
+                        </button>
                         <button class="btn-toggle" id="lightModeButton" onclick="toggleLightMode()">LIGHT MODE</button>
                         <button class="btn-primary" id="generateBtn" onclick="generateColors()">GENERATE COLORS</button>
                     </div>
@@ -980,7 +1094,7 @@ HTML = """
         function updateTheme(colors) {
             const bg = colors.background || '#000000';
             const fg = colors.foreground || '#808080';
-            const accent = colors.color4 || '#5588dd';
+            const accent = colors.color1 || '#5588dd';
 
             document.body.style.backgroundColor = bg;
             document.body.style.color = fg;
@@ -1002,8 +1116,52 @@ HTML = """
             // Update slider thumbs to use foreground color
             updateSliderThumbColor(fg);
 
+            // Update slider track background
+            document.querySelectorAll('input[type="range"]').forEach(slider => {
+                slider.style.background = accent;
+            });
+
             // Update button primary color
             document.querySelector('.btn-primary').style.backgroundColor = accent;
+            document.querySelector('.btn-primary').style.borderColor = accent;
+
+            // Update file picker button (image button)
+            const imageButton = document.getElementById('imageButton');
+            if (imageButton) {
+                imageButton.style.backgroundColor = accent;
+                imageButton.style.borderColor = accent;
+                imageButton.style.color = fg;
+            }
+
+            // Update settings button
+            const settingsButtons = document.querySelectorAll('.btn-icon');
+            settingsButtons.forEach(btn => {
+                btn.style.backgroundColor = accent;
+                btn.style.borderColor = accent;
+                btn.style.color = fg;
+            });
+
+            // Update light mode toggle button
+            const lightModeButton = document.getElementById('lightModeButton');
+            if (lightModeButton) {
+                lightModeButton.style.backgroundColor = accent;
+                lightModeButton.style.borderColor = accent;
+                lightModeButton.style.color = '#ffffff';
+            }
+
+            // Update template toggle buttons (active and inactive)
+            const templateButtons = document.querySelectorAll('.btn-template');
+            templateButtons.forEach(btn => {
+                if (btn.classList.contains('active')) {
+                    btn.style.backgroundColor = accent;
+                    btn.style.borderColor = accent;
+                    btn.style.color = '#ffffff';
+                } else {
+                    btn.style.backgroundColor = bg;
+                    btn.style.borderColor = fg;
+                    btn.style.color = fg;
+                }
+            });
 
             // Update results popup theme
             const popup = document.getElementById('resultsPopup');
@@ -1061,11 +1219,11 @@ HTML = """
 
                 if (isCustom && hasDefault) {
                     // Show reset icon
-                    imageButton.textContent = '↺';
+                    imageButton.innerHTML = '<svg class="icon"><use xlink:href="#icon-undo" href="#icon-undo"/></svg>';
                     imageButton.title = 'Reset to Default Wallpaper';
                 } else {
                     // Show file selector icon
-                    imageButton.textContent = '📁';
+                    imageButton.innerHTML = '<svg class="icon"><use xlink:href="#icon-image" href="#icon-image"/></svg>';
                     imageButton.title = 'Select Image';
                 }
             } catch (e) {
@@ -1109,9 +1267,21 @@ HTML = """
                 // Add template buttons
                 for (const [templateFile, templateInfo] of Object.entries(configInfo.templates)) {
                     const button = document.createElement('button');
-                    button.className = 'btn-template' + (templateInfo.active ? ' active' : '');
+                    let className = 'btn-template';
+
+                    // Add active class if enabled and active
+                    if (templateInfo.enabled && templateInfo.active) {
+                        className += ' active';
+                    }
+
+                    // Add disabled class if not enabled
+                    if (!templateInfo.enabled) {
+                        className += ' disabled';
+                    }
+
+                    button.className = className;
                     button.textContent = templateInfo.name;
-                    button.onclick = () => toggleTemplate(templateFile, button);
+                    button.onclick = () => toggleTemplate(templateFile, button, templateInfo.enabled);
                     templateButtons.appendChild(button);
                 }
 
@@ -1123,22 +1293,41 @@ HTML = """
                     button.onclick = () => toggleWSL(button);
                     templateButtons.appendChild(button);
                 }
+
+                // Initialize light mode state from config
+                isLightMode = configInfo.light_mode || false;
+                if (isLightMode) {
+                    lightModeButton.classList.add('active');
+                } else {
+                    lightModeButton.classList.remove('active');
+                }
+
+                // Apply theme to newly loaded buttons
+                if (currentColors) {
+                    updateTheme(currentColors);
+                }
             } catch (e) {
                 console.error('Error loading template buttons:', e);
             }
         }
 
         // Toggle template
-        async function toggleTemplate(templateFile, button) {
+        async function toggleTemplate(templateFile, button, wasEnabled) {
             try {
-                const isActive = await pywebview.api.toggle_template(templateFile);
-                if (isActive) {
-                    button.classList.add('active');
+                const isNowEnabled = await pywebview.api.toggle_template(templateFile);
+
+                // Reload all buttons to reflect new state from config
+                await loadTemplateButtons();
+
+                // Show feedback message
+                if (isNowEnabled) {
+                    showMessage(`${templateFile.replace('.prismo', '').toUpperCase()} enabled`, 'success');
                 } else {
-                    button.classList.remove('active');
+                    showMessage(`${templateFile.replace('.prismo', '').toUpperCase()} disabled`, 'success');
                 }
             } catch (e) {
                 console.error('Error toggling template:', e);
+                showMessage('Error toggling template', 'error');
             }
         }
 
@@ -1151,20 +1340,34 @@ HTML = """
                 } else {
                     button.classList.remove('active');
                 }
+                // Reapply theme to update button colors
+                if (currentColors) {
+                    updateTheme(currentColors);
+                }
             } catch (e) {
                 console.error('Error toggling WSL:', e);
             }
         }
 
         // Toggle light mode
-        function toggleLightMode() {
+        async function toggleLightMode() {
             isLightMode = !isLightMode;
-            pywebview.api.toggle_light_mode(isLightMode);
 
-            if (isLightMode) {
-                lightModeButton.classList.add('active');
-            } else {
-                lightModeButton.classList.remove('active');
+            try {
+                await pywebview.api.toggle_light_mode(isLightMode);
+
+                if (isLightMode) {
+                    lightModeButton.classList.add('active');
+                    showMessage('Light mode enabled', 'success');
+                } else {
+                    lightModeButton.classList.remove('active');
+                    showMessage('Light mode disabled', 'success');
+                }
+            } catch (e) {
+                console.error('Error toggling light mode:', e);
+                showMessage('Error toggling light mode', 'error');
+                // Revert on error
+                isLightMode = !isLightMode;
             }
         }
 
@@ -1325,7 +1528,7 @@ def main():
         height=900,
         resizable=True
     )
-    webview.start()
+    webview.start(debug=False)
 
 
 if __name__ == "__main__":

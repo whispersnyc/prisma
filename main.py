@@ -50,7 +50,7 @@ def gen_colors(img, apply_config=True, light_mode=False, templates=None, wsl=Non
         apply_config (bool): whether to apply templates and WSL config
         light_mode (bool): generate light mode color scheme
         templates (set): specific templates to apply (None = all from config)
-        wsl (bool): whether to apply WSL (None = use config)
+        wsl (list or None): list of WSL distros to apply (None = use config, [] = skip with message)
         config_dict (dict): config dictionary to use (None = use global config)
 
     Returns:
@@ -98,21 +98,52 @@ def gen_colors(img, apply_config=True, light_mode=False, templates=None, wsl=Non
         return results
 
     # WSL / wpgtk
-    apply_wsl = wsl if wsl is not None else active_config.get("wsl")
-    if apply_wsl: # wpgtk
-        wsl_distro = apply_wsl if isinstance(apply_wsl, str) else active_config.get("wsl")
-        if wsl_distro:
-            wsl_cmd = "wsl -d " + wsl_distro
-            wsl_img = convert(img)
-            Popen(wsl_cmd + " -- wpg -s \"%s\"" % wsl_img, shell=True)
-            img_name = wsl_img.replace("/", "_").replace(" ", "\\ ")
-            Popen(wsl_cmd + " -- rm ~/.config/wpg/schemes/" + img_name[:img_name.rfind('.')] + '*', shell=True)
-            print("Applied WSL wpgtk theme")
+    # Determine which distros to apply
+    if wsl is not None:
+        # wsl argument was provided
+        if isinstance(wsl, list):
+            if len(wsl) == 0:
+                # Empty list means flag was used with no arguments and no config
+                print("Ignoring WSL since no distros specified")
+                wsl_distros = []
+            else:
+                # Use the provided list of distros
+                wsl_distros = wsl
+        else:
+            # Single distro (shouldn't happen with nargs="*", but handle it)
+            wsl_distros = [wsl] if wsl else []
+    else:
+        # wsl argument not provided, check config
+        config_wsl = active_config.get("wsl")
+        if config_wsl:
+            # Parse config value - could be string or list
+            if isinstance(config_wsl, list):
+                wsl_distros = config_wsl
+            elif isinstance(config_wsl, str) and config_wsl.strip():
+                # Support comma-separated distros in config
+                wsl_distros = [d.strip() for d in config_wsl.split(",") if d.strip()]
+            else:
+                wsl_distros = []
+        else:
+            wsl_distros = []
 
-    # apply templates
+    # Apply to each distro
+    for wsl_distro in wsl_distros:
+        wsl_cmd = "wsl -d " + wsl_distro
+        wsl_img = convert(img)
+        Popen(wsl_cmd + " -- wpg -s \"%s\"" % wsl_img, shell=True)
+        img_name = wsl_img.replace("/", "_").replace(" ", "\\ ")
+        Popen(wsl_cmd + " -- rm ~/.config/wpg/schemes/" + img_name[:img_name.rfind('.')] + '*', shell=True)
+        print(f"Applied WSL wpgtk theme to '{wsl_distro}'")
+
+    # apply templates - merge enabled and disabled for lookup
+    all_templates = {}
+    all_templates.update(active_config.get("templates", {}))
+    all_templates.update(active_config.get("disabled", {}))
+
     templates_to_apply = templates if templates is not None else active_config.get("templates", {}).keys()
     for base_name in templates_to_apply:
-        output = active_config.get("templates", {}).get(base_name)
+        output = all_templates.get(base_name)
         if not output:
             error_msg = "Not found in config"
             print("Skipped %s template (%s)" % (base_name, error_msg))
@@ -189,9 +220,10 @@ def main(test_args=None, test_config=None, custom_config_path=None):
     parser.add_argument("-t", "--templates", nargs="?", const="__list__", default=None,
             help="apply specific templates (comma-separated list, e.g., 'discord,obsidian'). "
                  "If no list provided, prints available templates and config path, then exits")
-    parser.add_argument("-w", "--wsl", nargs="?", const="__config__", default=None,
-            help="apply WSL/wpgtk theme. Optionally specify WSL distro name. "
-                 "If no name provided, uses config value")
+    parser.add_argument("-w", "--wsl", nargs="*", default=None,
+            help="apply WSL/wpgtk theme. Accepts zero or more distro names (comma-separated or space-separated). "
+                 "With no arguments: uses config value (ignores if not configured). "
+                 "With one or more arguments: applies to specified distros (overrides config)")
     parser.add_argument("filepath", nargs="?", default=None,
             help="optional path to image file (if not provided, uses current wallpaper)")
     args = parser.parse_args(test_args)
@@ -204,27 +236,59 @@ def main(test_args=None, test_config=None, custom_config_path=None):
     # Handle --templates flag without list (print available templates)
     if args.templates == "__list__":
         print("Available templates in config:")
+
+        # Show enabled templates
         templates = config.get("templates", {})
         if templates:
+            print("\n  Enabled:")
             for template_name, output_path in templates.items():
                 # Display name is the config key (without extension)
                 display_name = template_name.replace('.prismo', '').upper()
                 # Actual file has .prismo extension
                 template_file = template_name if template_name.endswith('.prismo') else template_name + '.prismo'
-                print(f"  - {display_name}: {template_file} -> {output_path}")
+                print(f"    - {display_name}: {template_file} -> {output_path}")
         else:
-            print("  (no templates configured)")
+            print("\n  Enabled:")
+            print("    (no enabled templates)")
+
+        # Show disabled templates
+        disabled = config.get("disabled", {})
+        if disabled:
+            print("\n  Disabled:")
+            for template_name, output_path in disabled.items():
+                # Display name is the config key (without extension)
+                display_name = template_name.replace('.prismo', '').upper()
+                # Actual file has .prismo extension
+                template_file = template_name if template_name.endswith('.prismo') else template_name + '.prismo'
+                print(f"    - {display_name}: {template_file} -> {output_path}")
+        else:
+            print("\n  Disabled:")
+            print("    (no disabled templates)")
+
         print(f"\nConfig file location: {config_path}")
         sys.exit(0)
 
-    # Handle --wsl flag
+    # Parse WSL distros - support comma-separated and space-separated
+    wsl_distros = None
     if args.wsl is not None:
-        if args.wsl == "__config__":
-            # Use config WSL value
-            if not config.get("wsl", "").strip():
-                fatal("WSL distro not specified and no WSL configured in config file.\n"
-                      "Either provide a distro name with -w/--wsl or configure it in: " + config_path)
-        # else: args.wsl contains the distro name
+        # Flag was used
+        if len(args.wsl) == 0:
+            # --wsl with no arguments, try to use config
+            config_wsl = config.get("wsl", "")
+            if isinstance(config_wsl, list):
+                wsl_distros = config_wsl
+            elif isinstance(config_wsl, str) and config_wsl.strip():
+                wsl_distros = [d.strip() for d in config_wsl.split(",") if d.strip()]
+            else:
+                # Empty list will trigger the "Ignoring WSL" message
+                wsl_distros = []
+        else:
+            # One or more arguments provided, parse them
+            # Support both space-separated and comma-separated
+            wsl_distros = []
+            for arg in args.wsl:
+                # Split by comma in case user did: --wsl distro1,distro2
+                wsl_distros.extend([d.strip() for d in arg.split(",") if d.strip()])
 
     # If only --headless flag was provided, process normally (will generate from current wallpaper)
     # Otherwise continue with normal CLI behavior
@@ -260,19 +324,20 @@ def main(test_args=None, test_config=None, custom_config_path=None):
         if args.templates and args.templates != "__list__":
             # Parse comma-separated template list
             templates_to_apply = set(t.strip() for t in args.templates.split(","))
-            # Validate templates exist in config
-            for template in templates_to_apply:
-                if template not in config.get("templates", {}):
-                    print(f"Warning: template '{template}' not found in config, skipping")
-            templates_to_apply = templates_to_apply & set(config.get("templates", {}).keys())
 
-        # Determine WSL setting
-        wsl_setting = None
-        if args.wsl is not None:
-            if args.wsl == "__config__":
-                wsl_setting = config.get("wsl", "")
-            else:
-                wsl_setting = args.wsl
+            # Create combined templates dict (enabled + disabled) for CLI usage
+            all_templates = {}
+            all_templates.update(config.get("templates", {}))
+            all_templates.update(config.get("disabled", {}))
+
+            # Validate templates exist in config (either enabled or disabled)
+            for template in list(templates_to_apply):
+                if template not in all_templates:
+                    print(f"Warning: template '{template}' not found in config, skipping")
+                    templates_to_apply.discard(template)
+
+            # Keep only valid templates
+            templates_to_apply = templates_to_apply & set(all_templates.keys())
 
         # Determine if we should apply config
         apply_config = not args.colors_only or args.templates or args.wsl
@@ -282,7 +347,7 @@ def main(test_args=None, test_config=None, custom_config_path=None):
             apply_config=apply_config,
             light_mode=light_mode,
             templates=templates_to_apply,
-            wsl=wsl_setting
+            wsl=wsl_distros
         )
     except Exception as e:
         fatal("Error generating colors from wallpaper: " + str(e) + "\n"

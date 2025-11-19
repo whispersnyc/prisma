@@ -165,6 +165,5 @@ This is an optional section for those who want to modify the code and execute us
 
 The respective licenses are in the [repo resources folder](https://github.com/rakinishraq/prismo/tree/main/resources/licenses) and copied into the Local Appdata folder.
 
-- Obsidian template from [pywal-obsidianmd](https://github.com/poach3r/pywal-obsidianmd) by poach3r (unlicensed)
-  - changed formatting and some background colors
-- color scheme file generation from [pywal](https://github.com/dylanaraps/pywal) module by Dylan Araps
+- color scheme file generation from [pywal](https://github.com/dylanaraps/pywal) module by Dylan Araps (MIT)
+- hardcoded SVG icons in GUI interface by FontAwesome (CC-BY-4.0)
