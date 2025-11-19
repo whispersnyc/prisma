@@ -1,22 +1,22 @@
 @full
 .theme-dark {
-    --background-primary: {color0};
-    --background-primary-alt: {color0};
-    --background-accent: {color2};
-    --background-secondary: {color0};
-    --background-secondary-alt: {color0};
-    --text-accent: {color2};
-    --text-accent-hover: {color1};
-    --background-modifier-border: {color3};
-    --text-highlight-bg: {color3};
-    --text-selection: {color13};
-    --red: {color15};
-    --green: {color14};
-    --blue: {color13};
-    --purple: {color12};
-    --aqua: {color11};
-    --yellow: {color10};
-    --orange: {color9};
+    --background-primary: #{color0};
+    --background-primary-alt: #{color0};
+    --background-accent: #{color2};
+    --background-secondary: #{color0};
+    --background-secondary-alt: #{color0};
+    --text-accent: #{color2};
+    --text-accent-hover: #{color1};
+    --background-modifier-border: #{color1};
+    --text-highlight-bg: #{color3};
+    --text-selection: #{color13};
+    --red: #{color15};
+    --green: #{color14};
+    --blue: #{color13};
+    --purple: #{color12};
+    --aqua: #{color11};
+    --yellow: #{color10};
+    --orange: #{color9};
 }
 
 

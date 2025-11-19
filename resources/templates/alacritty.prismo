@@ -1,5 +1,5 @@
-# Prisma Template - Alacritty Terminal
-# This template demonstrates the new .prisma format with line-specific updates
+# Prismo Template - Alacritty Terminal
+# This template demonstrates the new .prismo format with line-specific updates
 # It updates an existing Alacritty config file with pywal colors
 
 # Update primary colors section (lines 50-60 in typical config)
@@ -8,63 +8,63 @@
 [colors.primary]
 
 @match ".*background.*=.*"
-background = '{background}'
+background = '#{background}'
 
 @match ".*foreground.*=.*"
-foreground = '{foreground}'
+foreground = '#{foreground}'
 
 # Update normal colors (lines 65-80)
 @match ".*\[colors\.normal\].*"
 [colors.normal]
 
 @match ".*black.*=.*"
-black = '{color0}'
+black = '#{color0}'
 
 @match ".*red.*=.*"
-red = '{color1}'
+red = '#{color1}'
 
 @match ".*green.*=.*"
-green = '{color2}'
+green = '#{color2}'
 
 @match ".*yellow.*=.*"
-yellow = '{color3}'
+yellow = '#{color3}'
 
 @match ".*blue.*=.*"
-blue = '{color4}'
+blue = '#{color4}'
 
 @match ".*magenta.*=.*"
-magenta = '{color5}'
+magenta = '#{color5}'
 
 @match ".*cyan.*=.*"
-cyan = '{color6}'
+cyan = '#{color6}'
 
 @match ".*white.*=.*"
-white = '{color7}'
+white = '#{color7}'
 
 # Update bright colors
 @match ".*\[colors\.bright\].*"
 [colors.bright]
 
 @match ".*black.*=.*"
-black = '{color8}'
+black = '#{color8}'
 
 @match ".*red.*=.*"
-red = '{color9}'
+red = '#{color9}'
 
 @match ".*green.*=.*"
-green = '{color10}'
+green = '#{color10}'
 
 @match ".*yellow.*=.*"
-yellow = '{color11}'
+yellow = '#{color11}'
 
 @match ".*blue.*=.*"
-blue = '{color12}'
+blue = '#{color12}'
 
 @match ".*magenta.*=.*"
-magenta = '{color13}'
+magenta = '#{color13}'
 
 @match ".*cyan.*=.*"
-cyan = '{color14}'
+cyan = '#{color14}'
 
 @match ".*white.*=.*"
-white = '{color15}'
+white = '#{color15}'

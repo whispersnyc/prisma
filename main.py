@@ -106,50 +106,22 @@ def gen_colors(img, apply_config=True, light_mode=False, templates=None, wsl=Non
         if not output:
             print("Skipped %s template (not found in config)" % base_name)
             continue
-        if not path.exists(template := (template_path + '\\' + base_name)):
-            print("Skipped %s template (either template file or output folder is missing)" % base_name)
+
+        # Automatically append .prismo extension if not present
+        template_file = base_name if base_name.endswith('.prismo') else base_name + '.prismo'
+        template = template_path + '\\' + template_file
+
+        if not path.exists(template):
+            print("Skipped %s template (template file is missing: %s)" % (base_name, template_file))
             continue
 
-        # Check if this is a .prisma template or legacy .txt template
-        if base_name.endswith('.prisma'):
-            # Use new template parser
-            try:
-                output_resolved = os.path.expandvars(os.path.expanduser(output))
-                apply_template(template, wal, output_resolved)
-                print("Applied %s template (new format)" % base_name)
-            except Exception as e:
-                print("Error applying %s template: %s" % (base_name, str(e)))
-        else:
-            # Legacy .txt template handling
-            # Expand environment variables in output path
-            output_expanded = os.path.expandvars(os.path.expanduser(output))
-
-            # Create parent directories if they don't exist
-            output_dir = path.dirname(output_expanded)
-            if output_dir and not path.exists(output_dir):
-                try:
-                    os.makedirs(output_dir, exist_ok=True)
-                    print("Created directory: %s" % output_dir)
-                except Exception as e:
-                    print("Error creating directory %s: %s" % (output_dir, str(e)))
-                    continue
-
-            with open(template, encoding='cp850') as base:
-                base = base.read()
-                for k in wal.keys():
-                    # process replacement of base, ex. {color0}
-                    base = base.replace("{%s}"%k, wal[k])
-                    if '{'+k+'.' in base:
-                        # process replacement of component, ex. {color0.r}/{color0.h}
-                        rgb = tuple(int(wal[k].strip("#")[i:i+2], 16) for i in (0, 2, 4))
-                        hls = rgb_to_hls(*[j/255.0 for j in rgb])
-                        hls = [str(hls[i]*100)+"%" if i > 0 else hls[i]*360 for i in range(3)]
-                        for c in range(3):
-                            base = base.replace("{%s.%s}" % (k, "rgb"[c]), str(rgb[c]))
-                            base = base.replace("{%s.%s}" % (k, "hls"[c]), str(hls[c]))
-                with open(output_expanded, "w", encoding='cp850') as output_file:
-                    output_file.write(base)
+        # Use new .prismo template parser
+        try:
+            output_resolved = os.path.expandvars(os.path.expanduser(output))
+            apply_template(template, wal, output_resolved)
             print("Applied %s template" % base_name)
+        except Exception as e:
+            print("Error applying %s template: %s" % (base_name, str(e)))
 
 
 
@@ -208,10 +180,12 @@ def main(test_args=None, test_config=None):
         print("Available templates in config:")
         templates = config.get("templates", {})
         if templates:
-            for template_file, output_path in templates.items():
-                display_name = template_file.replace('.txt', '').replace('.prisma', '').upper()
-                template_type = "prisma" if template_file.endswith('.prisma') else "legacy"
-                print(f"  - {display_name} ({template_type}): {template_file} -> {output_path}")
+            for template_name, output_path in templates.items():
+                # Display name is the config key (without extension)
+                display_name = template_name.replace('.prismo', '').upper()
+                # Actual file has .prismo extension
+                template_file = template_name if template_name.endswith('.prismo') else template_name + '.prismo'
+                print(f"  - {display_name}: {template_file} -> {output_path}")
         else:
             print("  (no templates configured)")
         print(f"\nConfig file location: {config_path}")

@@ -1,5 +1,5 @@
 """
-Config Manager for Prisma
+Config Manager for Prismo
 Centralized configuration loading and initialization
 """
 
@@ -12,7 +12,7 @@ import sys
 
 # Path constants
 home = path.expanduser("~")
-data_path = home + "\\AppData\\Local\\prisma"
+data_path = home + "\\AppData\\Local\\Prismo"
 config_path = data_path + "\\config.yaml"
 template_path = data_path + "\\templates"
 licenses_path = data_path + "\\licenses"

@@ -1,5 +1,6 @@
 templates:
-    discord.txt: '%userprofile%\AppData\Roaming\BetterDiscord\themes\pywal-discord-default.theme.css'
-    obsidian.txt: '%userprofile%\Documents\Notes\.obsidian\themes\pywal.css'
+    discord: '%userprofile%\AppData\Roaming\BetterDiscord\themes\pywal-discord-default.theme.css'
+    obsidian: '%userprofile%\Documents\Notes\.obsidian\themes\pywal.css'
+    test: 'D:\Desktop\test.txt'
 wsl: ''
 light_mode: false

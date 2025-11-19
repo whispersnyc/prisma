@@ -1,6 +1,6 @@
 """
-Prisma Template Parser
-Parses .prisma template files and applies them to target files
+Prismo Template Parser
+Parses .prismo template files and applies them to target files
 """
 
 import re
@@ -17,8 +17,8 @@ class TemplateOperation:
         self.params = kwargs
 
 
-class PrismaTemplate:
-    """Parses and applies .prisma template files"""
+class PrismoTemplate:
+    """Parses and applies .prismo template files"""
 
     def __init__(self, template_path: str):
         self.template_path = template_path
@@ -26,7 +26,7 @@ class PrismaTemplate:
         self._parse()
 
     def _parse(self):
-        """Parse the .prisma template file"""
+        """Parse the .prismo template file"""
         with open(self.template_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
 
@@ -197,13 +197,16 @@ class PrismaTemplate:
         result = content
 
         for color_name, color_hex in colors.items():
+            # Strip leading # from color_hex for better applicability
+            color_hex_no_hash = color_hex.lstrip('#')
+
             # Replace full color {colorN}
-            result = result.replace(f'{{{color_name}}}', color_hex)
+            result = result.replace(f'{{{color_name}}}', color_hex_no_hash)
 
             # Replace component colors if present
             if f'{{{color_name}.' in result:
-                # Convert hex to RGB
-                rgb = self._hex_to_rgb(color_hex)
+                # Convert hex to RGB (use stripped version)
+                rgb = self._hex_to_rgb(color_hex_no_hash)
                 # Convert RGB to HLS
                 hls = rgb_to_hls(*[c / 255.0 for c in rgb])
                 hls_values = [
@@ -236,9 +239,9 @@ def apply_template(template_path: str, colors: Dict[str, str], output_path: str)
     Convenience function to apply a template
 
     Args:
-        template_path: Path to .prisma template file
+        template_path: Path to .prismo template file
         colors: Dictionary of color names to hex values
         output_path: Target file path (from config)
     """
-    template = PrismaTemplate(template_path)
+    template = PrismoTemplate(template_path)
     template.apply(colors, output_path)

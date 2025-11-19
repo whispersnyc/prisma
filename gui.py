@@ -8,7 +8,7 @@ from main import gen_colors, get_wallpaper
 from config_manager import load_config, home, config_path
 
 
-class PrismaAPI:
+class PrismoAPI:
     """Backend API for the pywebview GUI"""
 
     def __init__(self):
@@ -59,8 +59,8 @@ class PrismaAPI:
         """Get config information for UI"""
         templates = {}
         for template_file in self.config.get("templates", {}).keys():
-            # Convert filename to display name (e.g., "discord.txt" -> "DISCORD", "example.prisma" -> "EXAMPLE")
-            name = template_file.replace(".txt", "").replace(".prisma", "").upper()
+            # Convert filename to display name (e.g., "discord.txt" -> "DISCORD", "example.prismo" -> "EXAMPLE")
+            name = template_file.replace(".txt", "").replace(".prismo", "").upper()
             templates[template_file] = {
                 "name": name,
                 "active": template_file in self.active_templates
@@ -1039,9 +1039,9 @@ HTML = """
 
 
 def main():
-    api = PrismaAPI()
+    api = PrismoAPI()
     window = webview.create_window(
-        'Prisma - Pywal Color Generator',
+        'Prismo - Pywal Color Generator',
         html=HTML,
         js_api=api,
         width=900,
