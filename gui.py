@@ -4,8 +4,25 @@ from json import loads, dumps
 from os import path, remove
 import base64
 import io
+import yaml
 from main import gen_colors, get_wallpaper
 from config_manager import load_config, home, config_path
+
+
+def save_config(config_dict, file_path):
+    """Save config with inline list format for WSL distros"""
+    # Custom representer to make lists use flow style (inline format)
+    class FlowStyleListDumper(yaml.SafeDumper):
+        pass
+
+    def represent_list(dumper, data):
+        # Use flow style for lists (inline: [item1, item2])
+        return dumper.represent_sequence('tag:yaml.org,2002:seq', data, flow_style=True)
+
+    FlowStyleListDumper.add_representer(list, represent_list)
+
+    with open(file_path, 'w') as f:
+        yaml.dump(config_dict, f, Dumper=FlowStyleListDumper, default_flow_style=False, sort_keys=False)
 
 
 class PrismoAPI:
@@ -95,8 +112,6 @@ class PrismoAPI:
 
     def toggle_template(self, template_file):
         """Toggle a template between enabled/disabled and persist to config"""
-        import yaml
-
         # Check if template is currently in enabled section
         if template_file in self.config.get("templates", {}):
             # Move from templates to disabled
@@ -120,8 +135,7 @@ class PrismoAPI:
 
         # Save config to file
         try:
-            with open(config_path, 'w') as f:
-                yaml.dump(self.config, f, default_flow_style=False, sort_keys=False)
+            save_config(self.config, config_path)
             print(f"Updated config: moved {template_file} to {'templates' if is_enabled else 'disabled'}")
         except Exception as e:
             print(f"Error saving config: {e}")
@@ -136,15 +150,12 @@ class PrismoAPI:
 
     def set_wsl_distros(self, distros):
         """Set WSL distros and persist to config"""
-        import yaml
-
         self.wsl_distros = distros if isinstance(distros, list) else []
         self.config["wsl"] = self.wsl_distros
 
         # Save config to file
         try:
-            with open(config_path, 'w') as f:
-                yaml.dump(self.config, f, default_flow_style=False, sort_keys=False)
+            save_config(self.config, config_path)
             print(f"Updated config: wsl = {self.wsl_distros}")
         except Exception as e:
             print(f"Error saving config: {e}")
@@ -323,15 +334,12 @@ class PrismoAPI:
 
     def toggle_light_mode(self, active):
         """Toggle light mode and persist to config"""
-        import yaml
-
         self.light_mode = active
         self.config["light_mode"] = active
 
         # Save config to file
         try:
-            with open(config_path, 'w') as f:
-                yaml.dump(self.config, f, default_flow_style=False, sort_keys=False)
+            save_config(self.config, config_path)
             print(f"Updated config: light_mode = {active}")
         except Exception as e:
             print(f"Error saving config: {e}")
