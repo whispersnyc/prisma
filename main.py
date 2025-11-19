@@ -100,32 +100,11 @@ def gen_colors(img, apply_config=True, light_mode=False, templates=None, wsl=Non
     # WSL / wpgtk
     # Determine which distros to apply
     if wsl is not None:
-        # wsl argument was provided
-        if isinstance(wsl, list):
-            if len(wsl) == 0:
-                # Empty list means flag was used with no arguments and no config
-                print("Ignoring WSL since no distros specified")
-                wsl_distros = []
-            else:
-                # Use the provided list of distros
-                wsl_distros = wsl
-        else:
-            # Single distro (shouldn't happen with nargs="*", but handle it)
-            wsl_distros = [wsl] if wsl else []
+        # wsl argument was provided (should be a list)
+        wsl_distros = wsl if isinstance(wsl, list) else []
     else:
         # wsl argument not provided, check config
-        config_wsl = active_config.get("wsl")
-        if config_wsl:
-            # Parse config value - could be string or list
-            if isinstance(config_wsl, list):
-                wsl_distros = config_wsl
-            elif isinstance(config_wsl, str) and config_wsl.strip():
-                # Support comma-separated distros in config
-                wsl_distros = [d.strip() for d in config_wsl.split(",") if d.strip()]
-            else:
-                wsl_distros = []
-        else:
-            wsl_distros = []
+        wsl_distros = active_config.get("wsl", [])
 
     # Apply to each distro
     for wsl_distro in wsl_distros:
@@ -220,10 +199,10 @@ def main(test_args=None, test_config=None, custom_config_path=None):
     parser.add_argument("-t", "--templates", nargs="?", const="__list__", default=None,
             help="apply specific templates (comma-separated list, e.g., 'discord,obsidian'). "
                  "If no list provided, prints available templates and config path, then exits")
-    parser.add_argument("-w", "--wsl", nargs="*", default=None,
-            help="apply WSL/wpgtk theme. Accepts zero or more distro names (comma-separated or space-separated). "
-                 "With no arguments: uses config value (ignores if not configured). "
-                 "With one or more arguments: applies to specified distros (overrides config)")
+    parser.add_argument("-w", "--wsl", nargs="?", const="__use_config__", default=None,
+            help="apply WSL/wpgtk theme. Accepts comma-separated distro names (e.g., 'Ubuntu,Debian'). "
+                 "With no arguments: uses config value. "
+                 "With arguments: applies to specified distros (overrides config)")
     parser.add_argument("filepath", nargs="?", default=None,
             help="optional path to image file (if not provided, uses current wallpaper)")
     args = parser.parse_args(test_args)
@@ -268,27 +247,16 @@ def main(test_args=None, test_config=None, custom_config_path=None):
         print(f"\nConfig file location: {config_path}")
         sys.exit(0)
 
-    # Parse WSL distros - support comma-separated and space-separated
+    # Parse WSL distros - support comma-separated list
     wsl_distros = None
     if args.wsl is not None:
         # Flag was used
-        if len(args.wsl) == 0:
-            # --wsl with no arguments, try to use config
-            config_wsl = config.get("wsl", "")
-            if isinstance(config_wsl, list):
-                wsl_distros = config_wsl
-            elif isinstance(config_wsl, str) and config_wsl.strip():
-                wsl_distros = [d.strip() for d in config_wsl.split(",") if d.strip()]
-            else:
-                # Empty list will trigger the "Ignoring WSL" message
-                wsl_distros = []
+        if args.wsl == "__use_config__":
+            # --wsl with no arguments, use config
+            wsl_distros = config.get("wsl", [])
         else:
-            # One or more arguments provided, parse them
-            # Support both space-separated and comma-separated
-            wsl_distros = []
-            for arg in args.wsl:
-                # Split by comma in case user did: --wsl distro1,distro2
-                wsl_distros.extend([d.strip() for d in arg.split(",") if d.strip()])
+            # CSV argument provided, parse it
+            wsl_distros = [d.strip() for d in args.wsl.split(",") if d.strip()]
 
     # If only --headless flag was provided, process normally (will generate from current wallpaper)
     # Otherwise continue with normal CLI behavior
