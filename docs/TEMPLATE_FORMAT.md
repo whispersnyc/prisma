@@ -8,10 +8,11 @@ Prismo templates use the `.prismo` file extension and support line-specific repl
 ### Directives
 All directives start with `@` at the beginning of a line:
 
-- `@full` - Replace the entire file with the content (NEW)
+- `@full` - Replace the entire file with the content
 - `@line <number>` - Replace a specific line (1-indexed)
 - `@lines <start>-<end>` - Replace a line range (inclusive, 1-indexed)
-- `@match "<regex>"` - Replace all lines matching the regex pattern
+- `@match "<regex>"` - Replace all lines matching the regex pattern (line-by-line)
+- `@match multiline "<regex>"` - Replace all matches across multiple lines (uses re.DOTALL)
 - `@append` - Append content to the end of the file
 - `@prepend` - Prepend content to the start of the file
 
@@ -107,6 +108,32 @@ vscode.prismo:
     "terminal.ansiGreen": "#{color2}"
 ```
 
+### Example 3: Multiline Matching
+
+Multiline matching is useful for replacing multi-line structures like JSON objects or code blocks.
+
+config.yaml:
+```yaml
+templates:
+    win-terminal.prismo: ~/AppData/Local/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState/settings.json
+```
+
+win-terminal.prismo:
+```prismo
+# Delete existing Pywal scheme (matches across multiple lines)
+@match multiline "\s*\{[^}]*\"name\"\s*:\s*\"Pywal\"[^}]*\},?\s*"
+
+
+# Insert new Pywal scheme
+@match "(\"schemes\":\s*\[)"
+$1
+        {
+            "name": "Pywal",
+            "background": "#{background}",
+            "foreground": "#{foreground}"
+        },
+```
+
 ## Behavior
 
 1. Output paths are specified in `config.yaml`, **not** in the template file
@@ -125,26 +152,22 @@ vscode.prismo:
 10. Regex patterns use Python's `re` module syntax
 11. Multiple directives can be used in the same template
 12. Operations are applied in the order they appear in the template
-13. `@full` replaces the entire file (similar to `.txt` templates)
+13. `@full` replaces the entire file
 
 ## Use Cases
 
-### When to use .prismo vs .txt templates:
+### When to use different directives:
 
-**Use .prismo templates when:**
-- Updating specific sections of existing config files with `@match`, `@line`, etc.
+**Use `@match`, `@line`, or `@regex` when:**
+- Updating specific sections of existing config files
 - You want to preserve file structure and only modify color values
 - Working with JSON, TOML, or other structured config formats
-- You need regex-based pattern matching for flexible updates
+- You need pattern matching for flexible updates
 
-**Use .prismo with @full directive when:**
-- You want complete file replacement like `.txt` but with the `.prismo` format
-- You're creating a new template and want consistency with other `.prismo` templates
-
-**Use .txt templates when:**
-- Maintaining legacy templates that already exist
-- Simple full-file replacement without needing directive features
+**Use `@full` directive when:**
+- You want complete file replacement
 - The file is a complete theme/style file (like CSS)
+- Creating configuration files from scratch
 
 ## Best Practices
 

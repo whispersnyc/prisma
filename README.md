@@ -46,12 +46,36 @@ This is optional if you just want to generate colors for Discord from your stati
   
 ## Configuration
 
-Edit the new `C:/Users/USER/AppData/Local/prismo/config.yaml` file with any text editor. Example:
+The default config folder is located at `C:/Users/USER/AppData/Local/Prismo/` containing:
+- `config.yaml` - Main configuration file
+- `templates/` - Template files (`.prismo` files)
+- `licenses/` - License files
+
+You can edit the config with any text editor, or specify a custom config folder using the `-c` flag.
+
+### Using Custom Config Folders
+
+You can maintain multiple config folders for different setups. The `-c` flag expects a **folder path** (not a file path) that contains `config.yaml` and `templates/`:
+
+```bash
+# Use custom config folder
+.\prismo.exe -c "D:\my-configs\work-theme"
+
+# Or with environment variables
+.\prismo.exe -c "%USERPROFILE%\Documents\prismo-configs"
+```
+
+The custom folder must contain:
+- `config.yaml` - Your configuration file
+- `templates/` - Your template files
+
+### Config Example
 
 ```yaml
 templates:
     alacritty: ~/AppData/Roaming/alacritty/alacritty.yml
     obsidian: ~/Documents/Notes/.obsidian/themes/pywal.css
+    win-terminal: %LOCALAPPDATA%\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json
 
 wsl: 'Ubuntu'
 light_mode: false
@@ -68,8 +92,7 @@ light_mode: false
 
 ### Template Files
 - Templates map a template file (left) to an output file path (right)
-- Template filenames ending in `.txt` use legacy full-file replacement
-- Template filenames ending in `.prismo` use the new directive-based format (see [Template Format docs](docs/TEMPLATE_FORMAT.md))
+- All template files use the `.prismo` extension and directive-based format (see [Template Format docs](docs/TEMPLATE_FORMAT.md))
 
 ### Custom Templates
 - The default templates (Alacritty, Discord and Obsidian) are located in the "templates" folder next to this config file
@@ -90,9 +113,15 @@ light_mode: false
 
 ### Light Mode
 - Set `light_mode` to `true` to generate light mode color schemes instead of dark mode. Defaults to `false` if not specified.
-- Can be overridden with the `-lm` flag when running the tool.  
-  
-  
+- Can be overridden with the `-lm` flag when running the tool.
+
+### Automatic Resource Recovery
+- Prismo automatically checks and restores missing configuration files on each run
+- If the config folder, templates folder, or licenses folder is deleted, it will be recreated
+- If individual template files (like `win-terminal.prismo`) or license files are deleted, they will be restored from the bundled resources
+- This ensures you can always recover default templates and configuration without reinstalling
+
+
   
 ## CLI Usage
 
@@ -101,16 +130,22 @@ Reads current Windows wallpaper, generates pywal color scheme, and applies to te
 
 options:
   -h, --help            show this help message and exit
+  -c, --config FOLDER   path to custom config folder with config.yaml and templates/ (default: %LOCALAPPDATA%\Prismo)
   -co, --colors-only    generate colors and format JSON only, skip config-based templates and WSL
   -lm, --light-mode     generate light mode color scheme instead of dark mode
+  -t, --templates       apply specific templates (comma-separated) or list available templates
+  -w, --wsl [DISTRO]    apply WSL/wpgtk theme, optionally specify distro name
 ```
 
 
 ## Common Uses
 
 - `.\prismo.exe` reads your current Windows wallpaper, generates a pywal color scheme from it, and applies all configured templates and WSL integration.
+- `.\prismo.exe -c "path\to\config-folder"` uses a custom config folder (containing config.yaml and templates/) instead of the default location.
 - `.\prismo.exe -co` reads your current Windows wallpaper and generates a pywal color scheme, but skips applying templates and WSL integration. This is useful if you only want to generate the colors.json file for use with other tools.
 - `.\prismo.exe -lm` generates a light mode color scheme instead of dark mode, overriding the config setting.
+- `.\prismo.exe -t discord,obsidian` applies only the specified templates (comma-separated, no spaces).
+- `.\prismo.exe -t` lists all available templates configured in config.yaml.
 - `.\prismo.exe -co -lm` generates a light mode color scheme and skips templates/WSL integration.
 
   

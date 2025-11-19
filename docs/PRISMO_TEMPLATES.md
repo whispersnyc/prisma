@@ -1,9 +1,6 @@
 # Prismo Template System
 
-Prismo supports two template formats for applying color schemes to applications:
-
-1. **Legacy `.txt` format** - Complete file replacement
-2. **New `.prismo` format** - Line-specific and pattern-based updates
+Prismo uses the `.prismo` template format for applying color schemes to applications, supporting both complete file replacement and line-specific/pattern-based updates.
 
 ## Quick Start
 
@@ -30,8 +27,7 @@ Edit `config.yaml` and add your template with the target output path:
 
 ```yaml
 templates:
-    discord.txt: ~/AppData/Roaming/BetterDiscord/themes/pywal-discord-default.theme.css
-    myapp.prismo: ~/.config/myapp/theme.conf
+    filename: ~/.config/myapp/theme.conf
 ```
 
 Note: The target output path is **always** specified in `config.yaml`, not in the template file. Paths support environment variables and home directory expansion.
@@ -39,7 +35,7 @@ Note: The target output path is **always** specified in `config.yaml`, not in th
 ## Directives Reference
 
 ### @full
-Replace the entire file contents with the template content (similar to `.txt` templates).
+Replace the entire file contents with the template content.
 
 ```prismo
 @full
@@ -69,12 +65,23 @@ line 12 content
 ```
 
 ### @match
-Replace all lines matching a regex pattern.
+Replace all lines matching a regex pattern (line-by-line by default).
 
 ```prismo
 @match ".*primary-color.*"
 primary-color = #{color4}
 ```
+
+### @match multiline
+Replace all matches across multiple lines. Useful for JSON objects, code blocks, or any multi-line structures.
+
+```prismo
+# Delete a multi-line JSON object containing "name": "Pywal"
+@match multiline "\s*\{[^}]*\"name\"\s*:\s*\"Pywal\"[^}]*\},?\s*"
+
+```
+
+**Note:** In multiline mode, the pattern uses `re.DOTALL` flag, so `.` matches newlines.
 
 ### @append
 Add content to the end of the file.
@@ -250,19 +257,25 @@ fg = #{foreground}
 # ... more config
 ```
 
-## Migrating from .txt to .prismo
+## Choosing the Right Approach
 
-If you have a `.txt` template that does full-file replacement, you may want to keep it as-is. The `.prismo` format is best for:
+The `.prismo` format offers flexibility for different use cases:
 
+**Use `@full` directive when:**
+- You need complete file replacement
+- The entire file is a theme/color configuration
+- The target file has no user-specific settings to preserve
+
+**Use `@match`, `@line`, or `@regex` when:**
 1. Updating existing config files without overwriting them
 2. Working with files that have user-specific settings you want to preserve
 3. Applications that auto-generate config files
 
-To migrate:
+To create a targeted update template:
 1. Identify what parts of the file actually need color updates
 2. Create `.prismo` template with `@match` directives for those sections
 3. Test on a copy of your config file
-4. Update `config.json` to use the new template
+4. Update `config.yaml` to use the new template
 
 ## Troubleshooting
 

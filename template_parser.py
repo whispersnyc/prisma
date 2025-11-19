@@ -51,6 +51,10 @@ class PrismoTemplate:
                 while i < len(lines):
                     if lines[i].startswith('@'):
                         break
+                    # Skip comment lines inside content blocks
+                    if lines[i].strip().startswith('#'):
+                        i += 1
+                        continue
                     content_lines.append(lines[i].rstrip('\n'))
                     i += 1
 
@@ -76,9 +80,16 @@ class PrismoTemplate:
                         self.operations.append(TemplateOperation('lines', content, start=start, end=end))
 
                 elif directive == 'match':
+                    # Check for multiline flag
+                    multiline = False
+                    args_stripped = args.strip()
+                    if args_stripped.startswith('multiline '):
+                        multiline = True
+                        args_stripped = args_stripped[10:].strip()  # Remove "multiline " prefix
+
                     # Remove quotes from pattern
-                    pattern = args.strip().strip('"').strip("'")
-                    self.operations.append(TemplateOperation('match', content, pattern=pattern))
+                    pattern = args_stripped.strip('"').strip("'")
+                    self.operations.append(TemplateOperation('match', content, pattern=pattern, multiline=multiline))
 
                 elif directive == 'append':
                     self.operations.append(TemplateOperation('append', content))
@@ -155,24 +166,48 @@ class PrismoTemplate:
 
             elif op.op_type == 'match':
                 pattern = op.params['pattern']
+                multiline = op.params.get('multiline', False)
+
                 try:
-                    regex = re.compile(pattern)
+                    if multiline:
+                        # Multiline mode: pattern can match across lines
+                        regex = re.compile(pattern, re.DOTALL)
+                    else:
+                        # Single-line mode: pattern matches individual lines
+                        regex = re.compile(pattern)
                 except re.error as e:
                     raise ValueError(f"Invalid regex pattern '{pattern}': {e}")
 
                 new_lines = content.split('\n')
 
-                # Replace all matching lines
-                i = 0
-                matches_found = 0
-                while i < len(file_lines):
-                    if regex.search(file_lines[i]):
-                        # Replace with new content (could be multiple lines)
-                        file_lines[i:i+1] = new_lines
-                        i += len(new_lines)
-                        matches_found += 1
-                    else:
-                        i += 1
+                if multiline:
+                    # Multiline matching: join all lines and search for pattern
+                    full_text = '\n'.join(file_lines)
+
+                    # Replace all matches in the full text
+                    # The content can contain backreferences like $1, $2, etc.
+                    # We need to expand them using the match groups
+                    def replacer(match):
+                        result = content
+                        # Replace $1, $2, etc. with captured groups
+                        for i in range(len(match.groups()) + 1):
+                            result = result.replace(f'${i}', match.group(i) if i < len(match.groups()) + 1 else '')
+                        return result
+
+                    result_text = regex.sub(replacer, full_text)
+                    file_lines = result_text.split('\n')
+                else:
+                    # Single-line matching: search each line individually
+                    i = 0
+                    matches_found = 0
+                    while i < len(file_lines):
+                        if regex.search(file_lines[i]):
+                            # Replace with new content (could be multiple lines)
+                            file_lines[i:i+1] = new_lines
+                            i += len(new_lines)
+                            matches_found += 1
+                        else:
+                            i += 1
 
                 # Note: Not raising an error if no matches found, as this might be intentional
 

@@ -119,19 +119,19 @@ def gen_colors(img, apply_config=True, light_mode=False, templates=None, wsl=Non
         try:
             output_resolved = os.path.expandvars(os.path.expanduser(output))
             apply_template(template, wal, output_resolved)
-            print("Applied %s template" % base_name)
+            print("Applied %s template to %s" % (base_name, output_resolved))
         except Exception as e:
             print("Error applying %s template: %s" % (base_name, str(e)))
 
 
 
-def main(test_args=None, test_config=None):
+def main(test_args=None, test_config=None, custom_config_path=None):
     """Process flags and read current wallpaper."""
 
     # Load configuration first (initializes data directory if needed)
     global config
     if not test_config:
-        config = load_config()
+        config = load_config(custom_config_path=custom_config_path)
     else:
         config = test_config
 
@@ -161,12 +161,14 @@ def main(test_args=None, test_config=None):
         "and applies to templates."
     parser.add_argument("-hl", "--headless", action="store_true",
             help="run in headless/CLI mode (default behavior when arguments are provided)")
+    parser.add_argument("-c", "--config", type=str, default=None,
+            help="path to custom config folder containing config.yaml and templates/ (default: %%LOCALAPPDATA%%\\Prismo)")
     parser.add_argument("-co", "--colors-only", action="store_true",
             help="generate colors and format JSON only, skip config-based templates and WSL")
     parser.add_argument("-lm", "--light-mode", action="store_true",
             help="generate light mode color scheme instead of dark mode")
     parser.add_argument("-t", "--templates", nargs="?", const="__list__", default=None,
-            help="apply specific templates (comma-separated list, e.g., 'discord.txt,obsidian.txt'). "
+            help="apply specific templates (comma-separated list, e.g., 'discord,obsidian'). "
                  "If no list provided, prints available templates and config path, then exits")
     parser.add_argument("-w", "--wsl", nargs="?", const="__config__", default=None,
             help="apply WSL/wpgtk theme. Optionally specify WSL distro name. "
@@ -174,6 +176,11 @@ def main(test_args=None, test_config=None):
     parser.add_argument("filepath", nargs="?", default=None,
             help="optional path to image file (if not provided, uses current wallpaper)")
     args = parser.parse_args(test_args)
+
+    # Handle custom config path
+    if args.config:
+        if not test_config:  # Only apply if not in test mode
+            config = load_config(custom_config_path=args.config)
 
     # Handle --templates flag without list (print available templates)
     if args.templates == "__list__":

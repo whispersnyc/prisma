@@ -1,6 +1,7 @@
 templates:
-    discord: '%userprofile%\AppData\Roaming\BetterDiscord\themes\pywal-discord-default.theme.css'
     obsidian: '%userprofile%\Documents\Notes\.obsidian\themes\pywal.css'
-    test: 'D:\Desktop\test.txt'
+disabled:
+    win-terminal: '%localappdata%\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json'
+    alacritty: '~\alacritty\alacritty.totml'
 wsl: ''
 light_mode: false

@@ -6,14 +6,14 @@ Centralized configuration loading and initialization
 import os
 from os import path, mkdir
 import yaml
-from shutil import copytree
 import sys
 
 
 # Path constants
 home = path.expanduser("~")
 data_path = home + "\\AppData\\Local\\Prismo"
-config_path = data_path + "\\config.yaml"
+default_config_path = data_path + "\\config.yaml"
+config_path = default_config_path  # Can be overridden by set_config_path()
 template_path = data_path + "\\templates"
 licenses_path = data_path + "\\licenses"
 
@@ -32,10 +32,12 @@ def initialize_data_directory():
     """
     Initialize data directory structure and copy resources if needed.
     This ensures all required folders and files exist.
+    Each component (licenses, templates, config.yaml) is checked and created individually.
 
     Returns:
         bool: True if initialization was needed, False if already existed
     """
+    from shutil import copy2
     needed_initialization = False
 
     # Create main data folder if it doesn't exist
@@ -44,23 +46,52 @@ def initialize_data_directory():
         needed_initialization = True
         print(f"Created data directory: {data_path}")
 
-    # Create/copy templates folder if it doesn't exist
+    # Create templates folder if it doesn't exist
     if not path.isdir(template_path):
-        try:
-            copytree(resource("templates"), template_path)
-            needed_initialization = True
-            print(f"Copied templates to: {template_path}")
-        except Exception as e:
-            print(f"Warning: Could not copy templates: {e}")
+        mkdir(template_path)
+        needed_initialization = True
+        print(f"Created templates directory: {template_path}")
 
-    # Create/copy licenses folder if it doesn't exist
+    # Check and copy individual template files if missing
+    try:
+        import glob
+        source_templates = glob.glob(resource("templates") + "\\*.prismo")
+        for source_template in source_templates:
+            template_name = path.basename(source_template)
+            dest_template = path.join(template_path, template_name)
+            if not path.isfile(dest_template):
+                try:
+                    copy2(source_template, dest_template)
+                    needed_initialization = True
+                    print(f"Copied template: {template_name}")
+                except Exception as e:
+                    print(f"Warning: Could not copy {template_name}: {e}")
+    except Exception as e:
+        print(f"Warning: Could not check template files: {e}")
+
+    # Create licenses folder if it doesn't exist
     if not path.isdir(licenses_path):
-        try:
-            copytree(resource("licenses"), licenses_path)
-            needed_initialization = True
-            print(f"Copied licenses to: {licenses_path}")
-        except Exception as e:
-            print(f"Warning: Could not copy licenses: {e}")
+        mkdir(licenses_path)
+        needed_initialization = True
+        print(f"Created licenses directory: {licenses_path}")
+
+    # Check and copy individual license files if missing
+    try:
+        import glob
+        source_licenses = glob.glob(resource("licenses") + "\\*")
+        for source_license in source_licenses:
+            if path.isfile(source_license):  # Only copy files, not directories
+                license_name = path.basename(source_license)
+                dest_license = path.join(licenses_path, license_name)
+                if not path.isfile(dest_license):
+                    try:
+                        copy2(source_license, dest_license)
+                        needed_initialization = True
+                        print(f"Copied license: {license_name}")
+                    except Exception as e:
+                        print(f"Warning: Could not copy {license_name}: {e}")
+    except Exception as e:
+        print(f"Warning: Could not check license files: {e}")
 
     # Create config file if it doesn't exist
     if not path.isfile(config_path):
@@ -77,24 +108,53 @@ def initialize_data_directory():
     return needed_initialization
 
 
-def load_config(force_reload=False):
+def set_config_path(custom_folder):
+    """
+    Override the default config folder with a custom folder.
+    This updates all related paths (config.yaml, templates/, licenses/).
+
+    Args:
+        custom_folder (str): Custom path to config folder (not the .yaml file itself)
+
+    Returns:
+        str: The resolved absolute config folder path
+    """
+    global config_path, data_path, template_path, licenses_path
+    # Expand environment variables and user home directory
+    resolved_folder = path.abspath(path.expandvars(path.expanduser(custom_folder)))
+
+    # Update all paths to use the custom folder
+    data_path = resolved_folder
+    config_path = path.join(resolved_folder, "config.yaml")
+    template_path = path.join(resolved_folder, "templates")
+    licenses_path = path.join(resolved_folder, "licenses")
+
+    return resolved_folder
+
+
+def load_config(force_reload=False, custom_config_path=None):
     """
     Load configuration from config.yaml.
     Automatically initializes data directory if it doesn't exist.
 
     Args:
         force_reload (bool): If True, reload config even if already loaded
+        custom_config_path (str): Optional custom path to config folder (containing config.yaml and templates/)
 
     Returns:
         dict: Configuration dictionary
     """
-    # Always ensure data directory exists first
-    was_created = initialize_data_directory()
+    # Set custom config folder if provided
+    if custom_config_path:
+        set_config_path(custom_config_path)
 
-    # If we just created the config, prompt user to edit it
-    if was_created and path.isfile(config_path):
-        print("\nConfig file created. You may want to edit it to configure templates.")
-        print(f"Config location: {config_path}\n")
+    # Always ensure data directory exists first (only for default config location)
+    if config_path == default_config_path:
+        was_created = initialize_data_directory()
+        # If we just created the config, prompt user to edit it
+        if was_created and path.isfile(config_path):
+            print("\nConfig file created. You may want to edit it to configure templates.")
+            print(f"Config location: {config_path}\n")
 
     # Load the config file
     try:
@@ -147,11 +207,13 @@ def reload_config():
 __all__ = [
     'load_config',
     'reload_config',
+    'set_config_path',
     'initialize_data_directory',
     'get_config_info',
     'home',
     'data_path',
     'config_path',
+    'default_config_path',
     'template_path',
     'licenses_path',
     'resource'
