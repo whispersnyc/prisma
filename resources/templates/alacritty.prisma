@@ -2,8 +2,6 @@
 # This template demonstrates the new .prisma format with line-specific updates
 # It updates an existing Alacritty config file with pywal colors
 
-@target HOME\AppData\Roaming\alacritty\alacritty.toml
-
 # Update primary colors section (lines 50-60 in typical config)
 # This assumes the config has a [colors.primary] section around these lines
 @match ".*\[colors\.primary\].*"

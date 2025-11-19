@@ -48,31 +48,44 @@ This is optional if you just want to generate colors for Discord from your stati
   
 ## Configuration
 
-Edit the new C:/Users/USER/AppData/Local/prisma/config.json file with any text editor. Example:
+Edit the new `C:/Users/USER/AppData/Local/prisma/config.yaml` file with any text editor. Example:
 
-```
-{
-    "templates":
-    {
-        "alacritty.txt": "C:/Users/USER/AppData/Roaming/alacritty/alacritty.yml",
-        "discord.txt": "C:/Users/USER/AppData/Roaming/BetterDiscord/themes/pywal-discord-default.theme.css",
-        "obsidian.txt": "C:/Users/USER/Documents/Notes/.obsidian/themes/pywal.css"
-    },
+```yaml
+templates:
+    alacritty.txt: ~/AppData/Roaming/alacritty/alacritty.yml
+    discord.txt: %userprofile%/AppData/Roaming/BetterDiscord/themes/pywal-discord-default.theme.css
+    obsidian.txt: ~/Documents/Notes/.obsidian/themes/pywal.css
+    example.prisma: ~/example-output.css
 
-    "wsl": "Manjaro",
-    "light_mode": false
-}
+wsl: ''
+light_mode: false
 ```
 
-### Formatting
-- Paths must use "/", not the usual Windows "\\".
-- Each line in the templates section is formatted with the template filename on the left and the target file to replace on the right.
-- Every line except the last one must end with a comma, including within curly brackets.
+### Path Expansion
+- Paths support environment variables and shortcuts:
+  - `~` expands to your home directory
+  - `%userprofile%` expands to your Windows user profile
+  - `$HOME` expands to your home directory (Unix-style)
+  - Any Windows environment variable like `%APPDATA%`, `%LOCALAPPDATA%`, etc.
+- Use either `/` or `\` for path separators (both work)
+- Missing directories are automatically created during color generation
+
+### Template Files
+- Templates map a template file (left) to an output file path (right)
+- Template filenames ending in `.txt` use legacy full-file replacement
+- Template filenames ending in `.prisma` use the new directive-based format (see [Template Format docs](docs/TEMPLATE_FORMAT.md))
 
 ### Custom Templates
-- The default templates (Alacritty, Discord and Obsidian) are located in the "templates" folder next to this config file.
-- In the template files, {colorname} is replaced with the hex code for a color or a HSL/RGB component like {colorname.r} for Red.
-- The available color names are color0, color1...color15, background, foreground and cursor. The available components are Hue (0-360), Saturation (0%-100%), Lightness (0%-100%), Red (0-255), Green (0-255) and Blue (0-255).
+- The default templates (Alacritty, Discord and Obsidian) are located in the "templates" folder next to this config file
+- In template files, `{colorname}` is replaced with the hex code for a color or a HSL/RGB component like `{colorname.r}` for Red
+- Available color names: `color0`, `color1`...`color15`, `background`, `foreground`, `cursor`
+- Available components:
+  - Hue (0-360): `{colorname.h}`
+  - Saturation (0%-100%): `{colorname.s}`
+  - Lightness (0%-100%): `{colorname.l}`
+  - Red (0-255): `{colorname.r}`
+  - Green (0-255): `{colorname.g}`
+  - Blue (0-255): `{colorname.b}`
 
 ### WSL
 - Set the WSL variable to the name of your WSL distribution if you want wpgtk integration. If WSL is not installed, leave it empty ("").

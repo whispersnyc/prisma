@@ -5,7 +5,7 @@ Centralized configuration loading and initialization
 
 import os
 from os import path, mkdir
-from json import loads
+import yaml
 from shutil import copytree
 import sys
 
@@ -13,7 +13,7 @@ import sys
 # Path constants
 home = path.expanduser("~")
 data_path = home + "\\AppData\\Local\\prisma"
-config_path = data_path + "\\config.json"
+config_path = data_path + "\\config.yaml"
 template_path = data_path + "\\templates"
 licenses_path = data_path + "\\licenses"
 
@@ -65,8 +65,8 @@ def initialize_data_directory():
     # Create config file if it doesn't exist
     if not path.isfile(config_path):
         try:
-            with open(resource("config.json")) as c:
-                config_content = c.read().replace("HOME", home)
+            with open(resource("config.yaml")) as c:
+                config_content = c.read()
             with open(config_path, "w") as c:
                 c.write(config_content)
             needed_initialization = True
@@ -79,7 +79,7 @@ def initialize_data_directory():
 
 def load_config(force_reload=False):
     """
-    Load configuration from config.json.
+    Load configuration from config.yaml.
     Automatically initializes data directory if it doesn't exist.
 
     Args:
@@ -100,9 +100,8 @@ def load_config(force_reload=False):
     try:
         if path.isfile(config_path):
             with open(config_path) as c:
-                config_content = c.read()
-                config = loads(config_content)
-                return config
+                config = yaml.safe_load(c)
+                return config if config else {}
         else:
             print(f"Warning: Config file not found at {config_path}")
             return {}

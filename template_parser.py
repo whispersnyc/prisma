@@ -22,7 +22,6 @@ class PrismaTemplate:
 
     def __init__(self, template_path: str):
         self.template_path = template_path
-        self.target_path: Optional[str] = None
         self.operations: List[TemplateOperation] = []
         self._parse()
 
@@ -46,11 +45,6 @@ class PrismaTemplate:
                 directive = parts[0].lower()
                 args = parts[1] if len(parts) > 1 else ''
 
-                if directive == 'target':
-                    self.target_path = args.strip()
-                    i += 1
-                    continue
-
                 # Collect content for this directive
                 content_lines = []
                 i += 1
@@ -67,7 +61,11 @@ class PrismaTemplate:
                 content = '\n'.join(content_lines)
 
                 # Create operation based on directive
-                if directive == 'line':
+                if directive == 'full':
+                    # Replace entire file with content
+                    self.operations.append(TemplateOperation('full', content))
+
+                elif directive == 'line':
                     line_num = int(args.strip())
                     self.operations.append(TemplateOperation('line', content, line_num=line_num))
 
@@ -90,20 +88,19 @@ class PrismaTemplate:
             else:
                 i += 1
 
-    def apply(self, colors: Dict[str, str], output_path: Optional[str] = None):
+    def apply(self, colors: Dict[str, str], output_path: str):
         """
         Apply the template with color substitutions
 
         Args:
             colors: Dictionary of color names to hex values (from wal)
-            output_path: Override the target path from template
+            output_path: Target file path (from config)
         """
-        target = output_path or self.target_path
-        if not target:
+        if not output_path:
             raise ValueError("No target path specified")
 
-        # Expand HOME in path
-        target = target.replace('HOME', os.path.expanduser('~'))
+        # Expand user home directory and environment variables
+        target = os.path.expandvars(os.path.expanduser(output_path))
 
         # Read existing file or start with empty
         if os.path.exists(target):
@@ -127,7 +124,11 @@ class PrismaTemplate:
             # Substitute color variables in content
             content = self._substitute_colors(op.content, colors)
 
-            if op.op_type == 'line':
+            if op.op_type == 'full':
+                # Replace entire file with content
+                file_lines = content.split('\n')
+
+            elif op.op_type == 'line':
                 line_num = op.params['line_num']
                 if line_num < 1:
                     raise ValueError(f"Line number must be >= 1, got {line_num}")
@@ -230,14 +231,14 @@ class PrismaTemplate:
         return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
 
 
-def apply_template(template_path: str, colors: Dict[str, str], output_path: Optional[str] = None):
+def apply_template(template_path: str, colors: Dict[str, str], output_path: str):
     """
     Convenience function to apply a template
 
     Args:
         template_path: Path to .prisma template file
         colors: Dictionary of color names to hex values
-        output_path: Optional override for target path
+        output_path: Target file path (from config)
     """
     template = PrismaTemplate(template_path)
     template.apply(colors, output_path)

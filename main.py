@@ -2,6 +2,7 @@ import argparse
 from colorsys import rgb_to_hls
 from subprocess import Popen, check_output, DEVNULL, CalledProcessError
 from json import loads, dumps
+import os
 from os import path
 import sys
 import pywal
@@ -113,13 +114,26 @@ def gen_colors(img, apply_config=True, light_mode=False, templates=None, wsl=Non
         if base_name.endswith('.prisma'):
             # Use new template parser
             try:
-                output_resolved = output.replace("HOME", home)
+                output_resolved = os.path.expandvars(os.path.expanduser(output))
                 apply_template(template, wal, output_resolved)
                 print("Applied %s template (new format)" % base_name)
             except Exception as e:
                 print("Error applying %s template: %s" % (base_name, str(e)))
         else:
             # Legacy .txt template handling
+            # Expand environment variables in output path
+            output_expanded = os.path.expandvars(os.path.expanduser(output))
+
+            # Create parent directories if they don't exist
+            output_dir = path.dirname(output_expanded)
+            if output_dir and not path.exists(output_dir):
+                try:
+                    os.makedirs(output_dir, exist_ok=True)
+                    print("Created directory: %s" % output_dir)
+                except Exception as e:
+                    print("Error creating directory %s: %s" % (output_dir, str(e)))
+                    continue
+
             with open(template, encoding='cp850') as base:
                 base = base.read()
                 for k in wal.keys():
@@ -133,8 +147,8 @@ def gen_colors(img, apply_config=True, light_mode=False, templates=None, wsl=Non
                         for c in range(3):
                             base = base.replace("{%s.%s}" % (k, "rgb"[c]), str(rgb[c]))
                             base = base.replace("{%s.%s}" % (k, "hls"[c]), str(hls[c]))
-                with open(output, "w", encoding='cp850') as output:
-                    output.write(base)
+                with open(output_expanded, "w", encoding='cp850') as output_file:
+                    output_file.write(base)
             print("Applied %s template" % base_name)
 
 

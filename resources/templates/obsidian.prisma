@@ -1,3 +1,4 @@
+@full
 .theme-dark {
     --background-primary: {color0};
     --background-primary-alt: {color0};
