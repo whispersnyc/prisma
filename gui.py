@@ -990,7 +990,7 @@ HTML = """
         }
 
         .results-item-error {
-            color: #999999;
+            color: #cccccc;
             font-size: 12px;
             margin-top: 4px;
         }
@@ -1000,7 +1000,7 @@ HTML = """
             padding-top: 15px;
             border-top: 1px solid #333333;
             font-size: 13px;
-            color: #999999;
+            color: #cccccc;
         }
 
         /* WSL Modal */
@@ -1410,7 +1410,7 @@ HTML = """
             if (imageButton) {
                 imageButton.style.backgroundColor = accent;
                 imageButton.style.borderColor = accent;
-                imageButton.style.color = fg;
+                imageButton.style.color = '#ffffff';
             }
 
             // Update settings button
@@ -1418,7 +1418,7 @@ HTML = """
             settingsButtons.forEach(btn => {
                 btn.style.backgroundColor = accent;
                 btn.style.borderColor = accent;
-                btn.style.color = fg;
+                btn.style.color = '#ffffff';
             });
 
             // Update template toggle buttons (active and inactive)
@@ -1454,20 +1454,6 @@ HTML = """
             if (popup) {
                 popup.style.backgroundColor = bg;
                 popup.style.borderColor = fg;
-
-                // Update popup text colors
-                const title = popup.querySelector('.results-title');
-                const closeBtn = popup.querySelector('.results-close');
-                if (title) title.style.color = fg;
-                if (closeBtn) closeBtn.style.color = fg;
-
-                popup.querySelectorAll('.results-section-title:not(.success):not(.error)').forEach(el => {
-                    el.style.color = fg;
-                });
-
-                popup.querySelectorAll('.results-item-name').forEach(el => {
-                    el.style.color = fg;
-                });
 
                 popup.querySelectorAll('.results-header, .results-summary').forEach(el => {
                     el.style.borderColor = fg;
@@ -1945,12 +1931,22 @@ HTML = """
             const overlay = document.getElementById('resultsOverlay');
             const content = document.getElementById('resultsContent');
 
+            // Determine text color based on light mode
+            const textColor = isLightMode ? '#333333' : '#e0e0e0';
+            const subtextColor = isLightMode ? '#999999' : '#cccccc';
+
+            // Apply colors to popup elements
+            const title = popup.querySelector('.results-title');
+            const closeBtn = popup.querySelector('.results-close');
+            if (title) title.style.color = textColor;
+            if (closeBtn) closeBtn.style.color = textColor;
+
             let html = '';
 
             // Templates section header
             const hasTemplateResults = (results.succeeded && results.succeeded.length > 0) || (results.failed && results.failed.length > 0);
             if (hasTemplateResults) {
-                html += '<div class="results-category-header">Templates</div>';
+                html += '<div class="results-category-header" style="color: ' + textColor + ';">Templates</div>';
             }
 
             // Template success section
@@ -1960,7 +1956,7 @@ HTML = """
                 html += '<ul class="results-list">';
                 results.succeeded.forEach(template => {
                     html += '<li class="results-item success">';
-                    html += '<div class="results-item-name">' + template + '</div>';
+                    html += '<div class="results-item-name" style="color: ' + textColor + ';">' + template + '</div>';
                     html += '</li>';
                 });
                 html += '</ul>';
@@ -1974,8 +1970,8 @@ HTML = """
                 html += '<ul class="results-list">';
                 results.failed.forEach(item => {
                     html += '<li class="results-item failed">';
-                    html += '<div class="results-item-name">' + item.name + '</div>';
-                    html += '<div class="results-item-error">' + item.error + '</div>';
+                    html += '<div class="results-item-name" style="color: ' + textColor + ';">' + item.name + '</div>';
+                    html += '<div class="results-item-error" style="color: ' + subtextColor + ';">' + item.error + '</div>';
                     html += '</li>';
                 });
                 html += '</ul>';
@@ -1985,7 +1981,7 @@ HTML = """
             // WSL section header
             const hasWSLResults = (results.wsl_succeeded && results.wsl_succeeded.length > 0) || (results.wsl_failed && results.wsl_failed.length > 0);
             if (hasWSLResults) {
-                html += '<div class="results-category-header">WSL Distros</div>';
+                html += '<div class="results-category-header" style="color: ' + textColor + ';">WSL Distros</div>';
             }
 
             // WSL success section
@@ -1995,7 +1991,7 @@ HTML = """
                 html += '<ul class="results-list">';
                 results.wsl_succeeded.forEach(distro => {
                     html += '<li class="results-item success">';
-                    html += '<div class="results-item-name">' + distro + '</div>';
+                    html += '<div class="results-item-name" style="color: ' + textColor + ';">' + distro + '</div>';
                     html += '</li>';
                 });
                 html += '</ul>';
@@ -2009,8 +2005,8 @@ HTML = """
                 html += '<ul class="results-list">';
                 results.wsl_failed.forEach(item => {
                     html += '<li class="results-item failed">';
-                    html += '<div class="results-item-name">' + item.name + '</div>';
-                    html += '<div class="results-item-error">' + item.error + '</div>';
+                    html += '<div class="results-item-name" style="color: ' + textColor + ';">' + item.name + '</div>';
+                    html += '<div class="results-item-error" style="color: ' + subtextColor + ';">' + item.error + '</div>';
                     html += '</li>';
                 });
                 html += '</ul>';
@@ -2019,14 +2015,14 @@ HTML = """
 
             // Firefox section
             if (results.pywalfox_attempted) {
-                html += '<div class="results-category-header">Firefox</div>';
+                html += '<div class="results-category-header" style="color: ' + textColor + ';">Firefox</div>';
 
                 if (results.pywalfox_success) {
                     html += '<div class="results-section">';
                     html += '<div class="results-section-title success">✓ Successfully Updated</div>';
                     html += '<ul class="results-list">';
                     html += '<li class="results-item success">';
-                    html += '<div class="results-item-name">Pywalfox extension</div>';
+                    html += '<div class="results-item-name" style="color: ' + textColor + ';">Pywalfox extension</div>';
                     html += '</li>';
                     html += '</ul>';
                     html += '</div>';
@@ -2035,8 +2031,8 @@ HTML = """
                     html += '<div class="results-section-title error">✗ Update Failed</div>';
                     html += '<ul class="results-list">';
                     html += '<li class="results-item failed">';
-                    html += '<div class="results-item-name">Pywalfox extension</div>';
-                    html += '<div class="results-item-error">Extension not installed or python module not found</div>';
+                    html += '<div class="results-item-name" style="color: ' + textColor + ';">Pywalfox extension</div>';
+                    html += '<div class="results-item-error" style="color: ' + subtextColor + ';">Extension not installed or python module not found</div>';
                     html += '</li>';
                     html += '</ul>';
                     html += '</div>';
@@ -2049,7 +2045,7 @@ HTML = """
             const wslTotal = (results.wsl_succeeded ? results.wsl_succeeded.length : 0) + (results.wsl_failed ? results.wsl_failed.length : 0);
             const wslSuccess = results.wsl_succeeded ? results.wsl_succeeded.length : 0;
 
-            html += '<div class="results-summary">';
+            html += '<div class="results-summary" style="color: ' + subtextColor + ';">';
             if (hasTemplateResults) {
                 html += 'Templates: ' + templateSuccess + ' of ' + templateTotal + ' applied successfully';
             }
