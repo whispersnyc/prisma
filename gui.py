@@ -1216,7 +1216,6 @@ HTML = """
                         <button class="btn-icon" onclick="openSettings()" title="Settings">
                             <svg class="icon"><use xlink:href="#icon-cog" href="#icon-cog"/></svg>
                         </button>
-                        <button class="btn-toggle" id="pywalfoxButton" onclick="togglePywalfox()">PYWALFOX</button>
                         <button class="btn-toggle" id="lightModeButton" onclick="toggleLightMode()">LIGHT MODE</button>
                         <button class="btn-primary" id="generateBtn" onclick="generateColors()">GENERATE COLORS</button>
                     </div>
@@ -1265,7 +1264,6 @@ HTML = """
         let imagePreview = document.getElementById('imagePreview');
         let colorGrid = document.getElementById('colorGrid');
         let lightModeButton = document.getElementById('lightModeButton');
-        let pywalfoxButton = document.getElementById('pywalfoxButton');
         let imageButton = document.getElementById('imageButton');
         let isLightMode = false;
         let isPywalfox = false;
@@ -1417,14 +1415,6 @@ HTML = """
                 lightModeButton.style.backgroundColor = accent;
                 lightModeButton.style.borderColor = accent;
                 lightModeButton.style.color = '#ffffff';
-            }
-
-            // Update pywalfox toggle button
-            const pywalfoxButton = document.getElementById('pywalfoxButton');
-            if (pywalfoxButton) {
-                pywalfoxButton.style.backgroundColor = accent;
-                pywalfoxButton.style.borderColor = accent;
-                pywalfoxButton.style.color = '#ffffff';
             }
 
             // Update template toggle buttons (active and inactive)
@@ -1649,6 +1639,13 @@ HTML = """
                     templateButtons.appendChild(button);
                 }
 
+                // Always add Firefox button
+                const firefoxButton = document.createElement('button');
+                firefoxButton.className = 'btn-template' + (configInfo.pywalfox ? ' active' : '');
+                firefoxButton.textContent = 'FIREFOX';
+                firefoxButton.onclick = () => togglePywalfox();
+                templateButtons.appendChild(firefoxButton);
+
                 // Initialize light mode state from config
                 isLightMode = configInfo.light_mode || false;
                 if (isLightMode) {
@@ -1659,11 +1656,6 @@ HTML = """
 
                 // Initialize pywalfox state from config
                 isPywalfox = configInfo.pywalfox || false;
-                if (isPywalfox) {
-                    pywalfoxButton.classList.add('active');
-                } else {
-                    pywalfoxButton.classList.remove('active');
-                }
 
                 // Apply theme to newly loaded buttons
                 if (currentColors) {
@@ -1824,12 +1816,13 @@ HTML = """
             try {
                 await pywebview.api.toggle_pywalfox(isPywalfox);
 
+                // Reload template buttons to reflect changes
+                await loadTemplateButtons();
+
                 if (isPywalfox) {
-                    pywalfoxButton.classList.add('active');
-                    showMessage('Pywalfox enabled', 'success');
+                    showMessage('Firefox enabled', 'success');
                 } else {
-                    pywalfoxButton.classList.remove('active');
-                    showMessage('Pywalfox disabled', 'success');
+                    showMessage('Firefox disabled', 'success');
                 }
             } catch (e) {
                 console.error('Error toggling pywalfox:', e);
