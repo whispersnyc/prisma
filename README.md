@@ -165,5 +165,5 @@ This is an optional section for those who want to modify the code and execute us
 
 The respective licenses are in the [repo resources folder](https://github.com/rakinishraq/prismo/tree/main/resources/licenses) and copied into the Local Appdata folder.
 
-- color scheme file generation from [pywal](https://github.com/dylanaraps/pywal) module by Dylan Araps (MIT)
-- hardcoded SVG icons in GUI interface by FontAwesome (CC-BY-4.0)
+- color scheme file generation from [pywal](https://github.com/dylanaraps/pywal) module by Dylan Araps ([MIT](https://github.com/dylanaraps/pywal?tab=MIT-1-ov-file))
+- hardcoded SVG icons in GUI interface by FontAwesome ([CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/))

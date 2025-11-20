@@ -776,8 +776,8 @@ HTML = """
         }
 
         .btn-toggle {
-            padding: 10px 20px;
-            font-size: 12px;
+            padding: 12px 32px;
+            font-size: 14px;
             font-weight: 600;
             background: #1a1a1a;
             color: #808080;
@@ -785,7 +785,6 @@ HTML = """
             cursor: pointer;
             transition: all 0.2s;
             letter-spacing: 0.5px;
-            white-space: nowrap;
         }
 
         .btn-toggle.active {
@@ -796,10 +795,12 @@ HTML = """
 
         .btn-toggle:hover {
             opacity: 0.8;
+            transform: translateY(-1px);
         }
 
         .btn-toggle:active {
             opacity: 0.6;
+            transform: translateY(0);
         }
 
         .btn-primary {
@@ -1420,7 +1421,7 @@ HTML = """
                 btn.style.color = fg;
             });
 
-            // Update template toggle buttons (active and inactive) - includes light mode button
+            // Update template toggle buttons (active and inactive)
             const templateButtons = document.querySelectorAll('.btn-template');
             templateButtons.forEach(btn => {
                 if (btn.classList.contains('active')) {
@@ -1433,6 +1434,20 @@ HTML = """
                     btn.style.color = fg;
                 }
             });
+
+            // Update light mode toggle button
+            const lightModeButton = document.getElementById('lightModeButton');
+            if (lightModeButton) {
+                if (lightModeButton.classList.contains('active')) {
+                    lightModeButton.style.backgroundColor = accent;
+                    lightModeButton.style.borderColor = accent;
+                    lightModeButton.style.color = '#ffffff';
+                } else {
+                    lightModeButton.style.backgroundColor = bg;
+                    lightModeButton.style.borderColor = fg;
+                    lightModeButton.style.color = fg;
+                }
+            }
 
             // Update results popup theme
             const popup = document.getElementById('resultsPopup');
@@ -1677,7 +1692,8 @@ HTML = """
 
                 // Add Light Mode button
                 const lightModeButton = document.createElement('button');
-                lightModeButton.className = 'btn-template' + (configInfo.light_mode ? ' active' : '');
+                lightModeButton.className = 'btn-toggle' + (configInfo.light_mode ? ' active' : '');
+                lightModeButton.id = 'lightModeButton';
                 lightModeButton.textContent = 'LIGHT MODE';
                 lightModeButton.onclick = () => toggleLightMode();
                 controlButtons.appendChild(lightModeButton);
@@ -1706,13 +1722,6 @@ HTML = """
 
                 // Reload all buttons to reflect new state from config
                 await loadTemplateButtons();
-
-                // Show feedback message
-                if (isNowEnabled) {
-                    showMessage(`${templateFile.replace('.prismo', '').toUpperCase()} enabled`, 'success');
-                } else {
-                    showMessage(`${templateFile.replace('.prismo', '').toUpperCase()} disabled`, 'success');
-                }
             } catch (e) {
                 console.error('Error toggling template:', e);
                 showMessage('Error toggling template', 'error');
@@ -1811,9 +1820,6 @@ HTML = """
 
                 // Close modal
                 closeWSLModal();
-
-                // Show success message
-                showMessage(`WSL distros updated: ${distros.length > 0 ? distros.join(', ') : 'none'}`, 'success');
             } catch (e) {
                 console.error('Error saving WSL distros:', e);
                 showMessage('Error saving WSL distros', 'error');
@@ -1829,12 +1835,6 @@ HTML = """
 
                 // Reload control buttons to reflect changes
                 await loadControlButtons();
-
-                if (isLightMode) {
-                    showMessage('Light mode enabled', 'success');
-                } else {
-                    showMessage('Light mode disabled', 'success');
-                }
             } catch (e) {
                 console.error('Error toggling light mode:', e);
                 showMessage('Error toggling light mode', 'error');
@@ -1852,12 +1852,6 @@ HTML = """
 
                 // Reload template buttons to reflect changes
                 await loadTemplateButtons();
-
-                if (isPywalfox) {
-                    showMessage('Firefox enabled', 'success');
-                } else {
-                    showMessage('Firefox disabled', 'success');
-                }
             } catch (e) {
                 console.error('Error toggling pywalfox:', e);
                 showMessage('Error toggling pywalfox', 'error');
