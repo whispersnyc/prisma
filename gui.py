@@ -658,6 +658,7 @@ HTML = """
             overflow-y: hidden;
             white-space: nowrap;
             padding: 10px 20px;
+            text-align: center;
         }
 
         .template-buttons {
