@@ -1831,8 +1831,32 @@ HTML = """
             try {
                 await pywebview.api.toggle_light_mode(isLightMode);
 
-                // Reload template buttons to reflect changes
-                await loadTemplateButtons();
+                // Update button appearance directly without reloading all buttons
+                const lightModeButton = document.getElementById('lightModeButton');
+                if (lightModeButton) {
+                    if (isLightMode) {
+                        lightModeButton.classList.add('active');
+                    } else {
+                        lightModeButton.classList.remove('active');
+                    }
+
+                    // Apply current theme colors to the button
+                    if (currentColors && currentColors.special) {
+                        const bg = currentColors.special.background;
+                        const fg = currentColors.special.foreground;
+                        const accent = currentColors.colors.color1;
+
+                        if (isLightMode) {
+                            lightModeButton.style.backgroundColor = accent;
+                            lightModeButton.style.borderColor = accent;
+                            lightModeButton.style.color = '#ffffff';
+                        } else {
+                            lightModeButton.style.backgroundColor = bg;
+                            lightModeButton.style.borderColor = fg;
+                            lightModeButton.style.color = fg;
+                        }
+                    }
+                }
 
                 if (isLightMode) {
                     showMessage('Light mode enabled', 'success');
@@ -1854,8 +1878,34 @@ HTML = """
             try {
                 await pywebview.api.toggle_pywalfox(isPywalfox);
 
-                // Reload template buttons to reflect changes
-                await loadTemplateButtons();
+                // Update Firefox button appearance directly without reloading all buttons
+                const templateButtons = document.querySelectorAll('.btn-template');
+                templateButtons.forEach(btn => {
+                    if (btn.textContent === 'FIREFOX') {
+                        if (isPywalfox) {
+                            btn.classList.add('active');
+                        } else {
+                            btn.classList.remove('active');
+                        }
+
+                        // Apply current theme colors to the button
+                        if (currentColors && currentColors.special) {
+                            const bg = currentColors.special.background;
+                            const fg = currentColors.special.foreground;
+                            const accent = currentColors.colors.color1;
+
+                            if (isPywalfox) {
+                                btn.style.backgroundColor = accent;
+                                btn.style.borderColor = accent;
+                                btn.style.color = '#ffffff';
+                            } else {
+                                btn.style.backgroundColor = bg;
+                                btn.style.borderColor = fg;
+                                btn.style.color = fg;
+                            }
+                        }
+                    }
+                });
 
                 if (isPywalfox) {
                     showMessage('Firefox enabled', 'success');
