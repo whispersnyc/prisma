@@ -776,9 +776,16 @@ HTML = """
         }
 
         .btn-toggle {
+            padding: 10px 20px;
+            font-size: 12px;
+            font-weight: 600;
             background: #1a1a1a;
             color: #808080;
-            position: relative;
+            border: 1px solid #808080;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
         }
 
         .btn-toggle.active {
@@ -787,14 +794,12 @@ HTML = """
             border-color: #5588dd;
         }
 
-        .btn-toggle::before {
-            content: '○';
-            margin-right: 8px;
-            font-size: 16px;
+        .btn-toggle:hover {
+            opacity: 0.8;
         }
 
-        .btn-toggle.active::before {
-            content: '●';
+        .btn-toggle:active {
+            opacity: 0.6;
         }
 
         .btn-primary {
@@ -1219,12 +1224,11 @@ HTML = """
             <!-- Controls -->
             <div class="panel">
                 <div class="controls">
-                    <div class="button-group">
+                    <div class="button-group" id="controlButtons">
                         <button class="btn-icon" onclick="openSettings()" title="Settings">
                             <svg class="icon"><use xlink:href="#icon-cog" href="#icon-cog"/></svg>
                         </button>
-                        <button class="btn-toggle" id="lightModeButton" onclick="toggleLightMode()">LIGHT MODE</button>
-                        <button class="btn-primary" id="generateBtn" onclick="generateColors()">GENERATE COLORS</button>
+                        <!-- Light mode and generate buttons will be dynamically added here -->
                     </div>
                 </div>
             </div>
@@ -1270,7 +1274,6 @@ HTML = """
         let contrastValue = document.getElementById('contrastValue');
         let imagePreview = document.getElementById('imagePreview');
         let colorGrid = document.getElementById('colorGrid');
-        let lightModeButton = document.getElementById('lightModeButton');
         let imageButton = document.getElementById('imageButton');
         let isLightMode = false;
         let isPywalfox = false;
@@ -1283,6 +1286,7 @@ HTML = """
             await loadWallpaper();
             await updateImageButton();
             await loadTemplateButtons();
+            await loadControlButtons();
         });
 
         // Load colors from backend
@@ -1416,15 +1420,7 @@ HTML = """
                 btn.style.color = fg;
             });
 
-            // Update light mode toggle button
-            const lightModeButton = document.getElementById('lightModeButton');
-            if (lightModeButton) {
-                lightModeButton.style.backgroundColor = accent;
-                lightModeButton.style.borderColor = accent;
-                lightModeButton.style.color = '#ffffff';
-            }
-
-            // Update template toggle buttons (active and inactive)
+            // Update template toggle buttons (active and inactive) - includes light mode button
             const templateButtons = document.querySelectorAll('.btn-template');
             templateButtons.forEach(btn => {
                 if (btn.classList.contains('active')) {
@@ -1653,15 +1649,8 @@ HTML = """
                 firefoxButton.onclick = () => togglePywalfox();
                 templateButtons.appendChild(firefoxButton);
 
-                // Initialize light mode state from config
+                // Initialize state from config
                 isLightMode = configInfo.light_mode || false;
-                if (isLightMode) {
-                    lightModeButton.classList.add('active');
-                } else {
-                    lightModeButton.classList.remove('active');
-                }
-
-                // Initialize pywalfox state from config
                 isPywalfox = configInfo.pywalfox || false;
 
                 // Apply theme to newly loaded buttons
@@ -1670,6 +1659,43 @@ HTML = """
                 }
             } catch (e) {
                 console.error('Error loading template buttons:', e);
+            }
+        }
+
+        // Load control buttons (light mode + generate)
+        async function loadControlButtons() {
+            try {
+                const configInfo = await pywebview.api.get_config_info();
+                const controlButtons = document.getElementById('controlButtons');
+
+                // Clear existing buttons except settings button
+                const settingsBtn = controlButtons.querySelector('.btn-icon');
+                controlButtons.innerHTML = '';
+                if (settingsBtn) {
+                    controlButtons.appendChild(settingsBtn);
+                }
+
+                // Add Light Mode button
+                const lightModeButton = document.createElement('button');
+                lightModeButton.className = 'btn-template' + (configInfo.light_mode ? ' active' : '');
+                lightModeButton.textContent = 'LIGHT MODE';
+                lightModeButton.onclick = () => toggleLightMode();
+                controlButtons.appendChild(lightModeButton);
+
+                // Add Generate button
+                const generateBtn = document.createElement('button');
+                generateBtn.className = 'btn-primary';
+                generateBtn.id = 'generateBtn';
+                generateBtn.textContent = 'GENERATE COLORS';
+                generateBtn.onclick = () => generateColors();
+                controlButtons.appendChild(generateBtn);
+
+                // Apply theme to newly loaded buttons
+                if (currentColors) {
+                    updateTheme(currentColors);
+                }
+            } catch (e) {
+                console.error('Error loading control buttons:', e);
             }
         }
 
@@ -1801,11 +1827,12 @@ HTML = """
             try {
                 await pywebview.api.toggle_light_mode(isLightMode);
 
+                // Reload control buttons to reflect changes
+                await loadControlButtons();
+
                 if (isLightMode) {
-                    lightModeButton.classList.add('active');
                     showMessage('Light mode enabled', 'success');
                 } else {
-                    lightModeButton.classList.remove('active');
                     showMessage('Light mode disabled', 'success');
                 }
             } catch (e) {
