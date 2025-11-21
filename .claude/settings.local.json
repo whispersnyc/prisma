@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python gui.py:*)"
+      "Bash(python gui.py:*)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []
